@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ランイベ手帳</title>
+<style>
+:root{
+  --ink:#0B1220;        /* ナイトゲームの空 */
+  --panel:#141D30;      /* パネル */
+  --panel2:#1A2540;     /* 浮き上がりパネル */
+  --line:#25334F;       /* 罫線 */
+  --text:#E9EEF7;
+  --sub:#8B99B5;
+  --faint:#6C7B9C;
+  --me:#E0424D;         /* 自分＝レッド */
+  --border-c:#4C84EE;   /* ボーダー＝ブルー */
+  --safe:#3DBE7B;
+  --warn:#E8A33D;
+  --danger:#E85D5D;
+  --gold:#D8B24A;
+  --radius:14px;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{
+  background:var(--ink);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  min-height:100vh;padding-bottom:env(safe-area-inset-bottom);
+  overscroll-behavior-y:none;
+}
+button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer}
+input,select,textarea{
+  font-family:inherit;font-size:16px;color:var(--text);
+  background:var(--ink);border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;width:100%;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--border-c)}
+input[type=number]{font-family:var(--mono)}
+label{display:block;font-size:12px;color:var(--sub);margin:12px 0 5px;letter-spacing:.04em}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ===== ヘッダー ===== */
+header{
+  position:sticky;top:0;z-index:20;
+  background:rgba(11,18,32,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  display:flex;align-items:center;gap:10px;
+}
+header .back{font-size:22px;color:var(--sub);padding:2px 8px 2px 0}
+header h1{font-size:17px;font-weight:800;letter-spacing:.02em;flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2px 6px 10px}
+
+.wrap{padding:16px;max-width:640px;margin:0 auto}
+
+/* ===== ホーム ===== */
+.brand{display:flex;align-items:baseline;gap:8px;margin:4px 0 14px}
+.brand .t{font-size:24px;font-weight:800;letter-spacing:.01em}
+.brand .s{font-size:11px;color:var(--faint);letter-spacing:.14em}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:14px}
+.seg button{flex:1;padding:9px 0;border-radius:8px;font-size:14px;font-weight:600;color:var(--sub)}
+.seg button.on{background:var(--panel2);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.ev-card{
+  display:block;width:100%;text-align:left;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:12px;position:relative;overflow:hidden;
+}
+.ev-card:active{background:var(--panel2)}
+.ev-card .type{font-size:10px;letter-spacing:.1em;color:var(--faint);margin-bottom:3px}
+.ev-card .name{font-size:17px;font-weight:700;margin-bottom:8px;padding-right:70px}
+.ev-card .meta{display:flex;gap:14px;font-size:12px;color:var(--sub);flex-wrap:wrap}
+.ev-card .meta b{color:var(--text);font-weight:600}
+.chip{
+  position:absolute;top:13px;right:13px;
+  font-size:11px;font-weight:700;letter-spacing:.06em;
+  padding:4px 10px;border-radius:99px;
+}
+.chip.live{background:rgba(224,66,77,.16);color:var(--me)}
+.chip.live::before{content:"●";margin-right:4px;animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.25}}
+.chip.done{background:rgba(139,153,181,.14);color:var(--sub)}
+.chip.draft{background:rgba(216,178,74,.14);color:var(--gold)}
+.empty{
+  text-align:center;color:var(--faint);font-size:13px;line-height:1.9;
+  padding:52px 20px;border:1px dashed var(--line);border-radius:var(--radius);
+}
+.fab{
+  position:fixed;right:18px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:15;
+  height:54px;padding:0 22px;border-radius:99px;
+  background:var(--me);color:#fff;font-size:16px;font-weight:700;
+  box-shadow:0 6px 20px rgba(224,66,77,.45);
+  display:flex;align-items:center;justify-content:center;white-space:nowrap;
+}
+.fab:active{transform:scale(.94)}
+
+/* ===== イベント詳細：タブ ===== */
+.tabs{
+  position:sticky;top:calc(45px + env(safe-area-inset-top));z-index:18;
+  display:flex;background:rgba(11,18,32,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);padding:0 8px;
+}
+.tabs button{
+  flex:1;padding:12px 0 11px;font-size:14px;font-weight:600;color:var(--faint);
+  border-bottom:2px solid transparent;
+}
+.tabs button.on{color:var(--text);border-bottom-color:var(--me)}
+
+/* ===== ペースボード（シグネチャー） ===== */
+.paceboard{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 14px 14px;margin-bottom:14px;
+  position:relative;overflow:hidden;
+}
+.paceboard::after{ /* ピッチのセンターライン */
+  content:"";position:absolute;left:50%;top:44px;bottom:44px;width:1px;
+  background:var(--line);
+}
+.pb-status{display:flex;justify-content:center;margin-bottom:12px;position:relative;z-index:1}
+.pb-status .st{
+  font-size:12px;font-weight:800;letter-spacing:.12em;
+  padding:5px 16px;border-radius:99px;
+}
+.st.s-safe{background:rgba(61,190,123,.16);color:var(--safe)}
+.st.s-warn{background:rgba(232,163,61,.16);color:var(--warn)}
+.st.s-danger{background:rgba(232,93,93,.16);color:var(--danger)}
+.st.s-none{background:rgba(90,106,138,.16);color:var(--faint)}
+.pb-grid{display:grid;grid-template-columns:1fr 1fr;position:relative;z-index:1}
+.pb-side{text-align:center;padding:0 6px}
+.pb-side .who{font-size:10px;letter-spacing:.14em;font-weight:700;margin-bottom:4px}
+.pb-side.me .who{color:var(--me)}
+.pb-side.bd .who{color:var(--border-c)}
+.pb-side .pt{font-family:var(--mono);font-variant-numeric:tabular-nums;
+  font-size:clamp(21px,7.4vw,30px);font-weight:700;letter-spacing:-.02em;line-height:1.15;
+  word-break:break-all}
+.pb-side .lb{font-size:10px;color:var(--faint);margin-top:3px}
+.pb-diff{
+  text-align:center;margin-top:12px;padding-top:11px;border-top:1px solid var(--line);
+  font-size:12px;color:var(--sub);position:relative;z-index:1;
+}
+.pb-diff .num{font-size:15px;font-weight:700}
+.diff-plus{color:var(--safe)}
+.diff-minus{color:var(--danger)}
+
+/* ===== 汎用カード・統計 ===== */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:14px}
+.card h3{font-size:12px;color:var(--sub);font-weight:700;letter-spacing:.08em;margin-bottom:10px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat .k{font-size:10px;color:var(--faint);letter-spacing:.04em;margin-bottom:3px}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:18px;font-weight:700}
+.stat .u{font-size:10px;color:var(--faint);font-weight:400;margin-left:2px}
+.note{font-size:11px;color:var(--faint);line-height:1.7;margin-top:10px}
+
+/* ===== ボード切替 ===== */
+.board-bar{display:flex;gap:8px;overflow-x:auto;margin-bottom:14px;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.board-bar button{
+  flex:0 0 auto;font-size:12px;font-weight:600;color:var(--sub);
+  border:1px solid var(--line);border-radius:99px;padding:7px 14px;background:var(--panel);
+  white-space:nowrap;
+}
+.board-bar button.on{color:var(--text);border-color:var(--border-c);background:rgba(76,132,238,.12)}
+.board-bar button.add{color:var(--faint);border-style:dashed}
+
+/* ===== 記録リスト ===== */
+.rec{
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:13px 14px;margin-bottom:10px;display:block;width:100%;text-align:left;
+}
+.rec:active{background:var(--panel2)}
+.rec .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.rec .ts{font-size:11px;color:var(--faint)}
+.rec .rank{font-size:11px;color:var(--sub)}
+.rec .row{display:flex;gap:16px;flex-wrap:wrap}
+.rec .cell{font-size:14px}
+.rec .cell .k{font-size:10px;color:var(--faint);display:block}
+.rec .cell.c-me{color:var(--me)}
+.rec .cell.c-bd{color:var(--border-c)}
+.rec .memo{font-size:11px;color:var(--sub);margin-top:5px}
+
+/* ===== グラフ ===== */
+.chart-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:12px 8px 6px;margin-bottom:12px}
+canvas{display:block;width:100%;touch-action:manipulation}
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:6px 8px 8px;font-size:11px;color:var(--sub)}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.tip{
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  padding:10px 14px;font-size:12px;line-height:1.8;margin-bottom:12px;color:var(--sub);
+}
+.tip b{color:var(--text);font-family:var(--mono)}
+
+/* ===== 報酬 ===== */
+.rw{display:flex;align-items:center;gap:12px;background:var(--panel);
+  border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:8px}
+.rw .chk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);
+  flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:14px;color:transparent}
+.rw.got .chk{background:var(--safe);border-color:var(--safe);color:#0B1220}
+.rw.reach:not(.got) .chk{border-color:var(--gold)}
+.rw .pt{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;font-weight:700;flex:0 0 auto;min-width:86px}
+.rw .lb{font-size:13px;color:var(--sub);flex:1}
+.rw.got .lb{text-decoration:line-through;color:var(--faint)}
+.rw .del{color:var(--faint);font-size:17px;padding:4px 2px 4px 8px}
+.next-rw{border-left:3px solid var(--gold);padding-left:12px;margin:4px 0 14px;font-size:13px;color:var(--sub);line-height:1.7}
+.next-rw b{font-family:var(--mono);color:var(--gold)}
+
+/* ===== ボタン ===== */
+.btn{display:block;width:100%;text-align:center;font-size:15px;font-weight:700;
+  padding:13px;border-radius:12px;margin-top:10px}
+.btn.primary{background:var(--me);color:#fff}
+.btn.primary:active{opacity:.85}
+.btn.ghost{border:1px solid var(--line);color:var(--sub);background:var(--panel)}
+.btn.ghost:active{background:var(--panel2)}
+.btn.danger-o{border:1px solid rgba(232,93,93,.4);color:var(--danger);background:none}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1}
+
+/* ===== モーダル ===== */
+.modal-bg{position:fixed;inset:0;background:rgba(5,9,18,.72);z-index:50;
+  display:none;align-items:flex-end;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--panel);border:1px solid var(--line);
+  border-radius:18px 18px 0 0;width:100%;max-width:640px;
+  max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:8px 18px calc(22px + env(safe-area-inset-bottom));
+}
+.modal .grip{width:38px;height:4px;border-radius:2px;background:var(--line);margin:6px auto 12px}
+.modal h2{font-size:16px;font-weight:800;margin-bottom:4px}
+.m-sub{font-size:11px;color:var(--faint);margin-bottom:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.border-inputs .bi{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.border-inputs .bi .rk{font-family:var(--mono);font-size:13px;color:var(--border-c);min-width:64px;text-align:right}
+.inline-note{font-size:11px;color:var(--warn);margin-top:6px;display:none}
+.inline-note.show{display:block}
+.small-link{font-size:12px;color:var(--border-c);padding:8px 0;display:inline-block}
+textarea{min-height:64px;resize:vertical}
+.danger-zone{margin-top:26px;padding-top:16px;border-top:1px dashed var(--line)}
+.hidden{display:none!important}
+.alert{background:rgba(232,93,93,.10);border:1px solid rgba(232,93,93,.45);
+  border-radius:var(--radius);padding:12px 14px;margin-bottom:14px}
+.alert h4{font-size:12px;color:var(--danger);letter-spacing:.08em;margin-bottom:7px;font-weight:800}
+.alert ul{margin-left:18px}
+.alert li{font-size:12px;line-height:1.8}
+.alert .n{font-size:10px;color:var(--faint);margin-top:7px;line-height:1.6}
+.fold-toggle{display:block;width:100%;text-align:left;font-size:13px;color:var(--border-c);
+  padding:14px 0 2px;font-weight:600}
+.fold{display:none}
+.fold.open{display:block}
+.guide{border-color:rgba(76,132,238,.5)!important}
+.remind{background:rgba(232,163,61,.10);border:1px solid rgba(232,163,61,.45);
+  border-radius:var(--radius);padding:11px 14px;margin-bottom:14px;
+  font-size:12px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<!-- ============ ホーム ============ -->
+<div id="view-home">
+  <header>
+    <h1 style="display:flex;align-items:baseline;gap:8px">ランイベ手帳
+      <span style="font-size:10px;color:var(--faint);letter-spacing:.12em;font-weight:400">Jクラ RANKING TRACKER</span>
+    </h1>
+    <button class="h-act" onclick="showLearn()">学習</button>
+    <button class="h-act" onclick="openDataModal()">データ</button>
+  </header>
+  <div class="wrap">
+    <div class="seg" id="home-seg">
+      <button data-f="active" class="on" onclick="setHomeFilter('active')">開催中</button>
+      <button data-f="done" onclick="setHomeFilter('done')">完了</button>
+      <button data-f="all" onclick="setHomeFilter('all')">すべて</button>
+    </div>
+    <div id="ev-list"></div>
+  </div>
+  <button class="fab" onclick="openEventModal()" aria-label="新規イベント">＋ イベント</button>
+</div>
+
+<!-- ============ イベント詳細 ============ -->
+<div id="view-event" class="hidden">
+  <header>
+    <button class="back" onclick="showHome()" aria-label="戻る">‹</button>
+    <h1 id="ev-title"></h1>
+    <button class="h-act" onclick="openEventModal(state.evId)">編集</button>
+  </header>
+  <div class="tabs" id="ev-tabs">
+    <button data-t="dash" class="on" onclick="setTab('dash')">状況</button>
+    <button data-t="recs" onclick="setTab('recs')">記録</button>
+    <button data-t="chart" onclick="setTab('chart')">グラフ</button>
+    <button data-t="rw" onclick="setTab('rw')">報酬</button>
+  </div>
+  <div class="wrap">
+    <div class="board-bar" id="board-bar"></div>
+    <div id="tab-dash"></div>
+    <div id="tab-recs" class="hidden"></div>
+    <div id="tab-chart" class="hidden">
+      <div class="chart-box"><canvas id="chart" height="300"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--me)"></i>自分</span>
+          <span><i style="background:var(--border-c)"></i>ボーダー</span>
+          <span><i style="background:var(--border-c);opacity:.5"></i>線形予測</span>
+          <span><i style="background:var(--gold)"></i>実績カーブ予測</span>
+          <span><i style="background:var(--warn)"></i>安全ライン</span>
+        </div>
+      </div>
+      <div class="tip" id="chart-tip">グラフ上の点をタップすると詳細を表示します。</div>
+    </div>
+    <div id="tab-rw" class="hidden"></div>
+  </div>
+  <button class="fab" id="ev-fab" onclick="onEventFab()" aria-label="追加">＋</button>
+</div>
+
+<!-- ============ 学習データビューア ============ -->
+<div id="view-learn" class="hidden">
+  <header>
+    <button class="back" onclick="showHome()" aria-label="戻る">‹</button>
+    <h1>学習データ（ボーダー実績カーブ）</h1>
+  </header>
+  <div class="wrap">
+    <div class="board-bar" id="learn-chips"></div>
+    <div class="chart-box"><canvas id="learn-chart" height="280"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--gold)"></i>中央値カーブ（予測に使用）</span>
+        <span><i style="background:#4C84EE;opacity:.55"></i>各イベントの実績</span>
+      </div>
+    </div>
+    <div id="learn-stats"></div>
+  </div>
+</div>
+
+<!-- ============ モーダル：イベント作成/編集 ============ -->
+<div class="modal-bg" id="m-event">
+  <div class="modal">
+    <div class="grip"></div>
+    <h2 id="m-event-title">新規イベント</h2>
+    <label>イベント種別</label>
+    <select id="f-type" onchange="onTypeChange()"></select>
+    <label>イベント名</label>
+    <input id="f-name" placeholder="例：8月 トロフィーランブル">
+    <div class="grid2">
+      <div><label>開始日時</label><input type="datetime-local" id="f-start"></div>
+      <div><label>終了日時</label><input type="datetime-local" id="f-end"></div>
+    </div>
+    <div class="grid2">
+      <div><label>目標順位</label><input type="number" id="f-target" inputmode="numeric" placeholder="100"></div>
+      <div><label>安全マージン（%）</label><input type="number" id="f-margin" inputmode="decimal" value="5"></div>
+    </div>
+    <label>ポイント名称</label>
+    <input id="f-ptname" placeholder="例：ランブルPt">
+    <label>特効メモ（カード・倍率など）</label>
+    <input id="f-tokko" placeholder="例：MVPキラ ×3.5">
+    <label>メモ</label>
+    <textarea id="f-memo" placeholder="狙う報酬、方針など"></textarea>
+    <label>ステータス</label>
+    <select id="f-status">
+      <option value="active">開催中</option>
+      <option value="draft">下書き</option>
+      <option value="done">完了</option>
+    </select>
+    <button class="btn primary" onclick="saveEvent()">保存</button>
+    <button class="btn ghost" onclick="closeModal('m-event')">キャンセル</button>
+    <div class="danger-zone" id="ev-danger">
+      <button class="btn ghost" onclick="duplicateEvent()">このイベントを複製して新規作成</button>
+      <button class="btn danger-o" onclick="deleteEvent()">このイベントを削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ モーダル：記録追加/編集 ============ -->
+<div class="modal-bg" id="m-rec">
+  <div class="modal">
+    <div class="grip"></div>
+    <h2 id="m-rec-title">記録を追加</h2>
+    <div class="m-sub" id="m-rec-board"></div>
+    <label>記録日時</label>
+    <input type="datetime-local" id="r-ts">
+    <div class="grid2">
+      <div><label id="r-mypt-label">自分のポイント</label><input type="number" id="r-mypt" inputmode="numeric" placeholder="0"></div>
+      <div><label>自分の順位</label><input type="number" id="r-myrank" inputmode="numeric" placeholder="未確認は空欄"></div>
+    </div>
+    <label id="r-primary-label">ボーダーポイント</label>
+    <div class="border-inputs" id="r-border-primary"></div>
+    <div class="inline-note" id="r-border-warn">⚠ 前回より低いボーダーがあります。入力ミスでないか確認してください。</div>
+    <button class="fold-toggle" id="r-borders-toggle" onclick="toggleFold('r-borders-fold','r-borders-toggle')">▸ 他の順位のボーダーも記録</button>
+    <div class="fold" id="r-borders-fold">
+      <div class="border-inputs" id="r-borders"></div>
+      <button class="small-link" onclick="openBoardModal(state.boardId)">＋ 記録する順位を編集</button>
+    </div>
+    <button class="fold-toggle" id="r-res-toggle" onclick="toggleFold('r-res-fold','r-res-toggle')">▸ 資源も記録（回復薬・バモ・特効）</button>
+    <div class="fold" id="r-res-fold">
+      <div class="grid2">
+        <div><label>GP回復薬残</label><input type="number" id="r-gpheal" inputmode="numeric"></div>
+        <div><label>BP回復薬残</label><input type="number" id="r-bpheal" inputmode="numeric"></div>
+      </div>
+      <div class="grid2">
+        <div><label>バモ残</label><input type="number" id="r-vamo" inputmode="numeric"></div>
+        <div><label>特効値（%）</label><input type="number" id="r-tokko" inputmode="decimal" placeholder="例：480"></div>
+      </div>
+    </div>
+    <label>メモ</label>
+    <input id="r-memo" placeholder="例：11連×3、EX解禁">
+    <button class="btn primary" onclick="saveRecord()">保存</button>
+    <button class="btn ghost" onclick="closeModal('m-rec')">キャンセル</button>
+    <div class="danger-zone hidden" id="rec-danger">
+      <button class="btn danger-o" onclick="deleteRecord()">この記録を削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ モーダル：ボード作成/編集 ============ -->
+<div class="modal-bg" id="m-board">
+  <div class="modal">
+    <div class="grip"></div>
+    <h2 id="m-board-title">ランキングボード</h2>
+    <div class="m-sub">マスメディアの項目別ランキングのように、1イベントに複数のランキングがある場合に追加します。</div>
+    <label>ボード名</label>
+    <input id="b-name" placeholder="例：メイン / EP周回 / パスラッシュ">
+    <label>記録する順位（カンマ区切り）</label>
+    <input id="b-ranks" placeholder="例：10,50,100,300,500,1000">
+    <label>このボードの目標順位</label>
+    <input type="number" id="b-target" inputmode="numeric" placeholder="空欄ならイベント設定を使用">
+    <button class="btn primary" onclick="saveBoard()">保存</button>
+    <button class="btn ghost" onclick="closeModal('m-board')">キャンセル</button>
+    <div class="danger-zone hidden" id="board-danger">
+      <button class="btn danger-o" onclick="deleteBoard()">このボードを削除（記録も消えます）</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ モーダル：報酬追加 ============ -->
+<div class="modal-bg" id="m-rw">
+  <div class="modal">
+    <div class="grip"></div>
+    <h2>累計報酬を追加</h2>
+    <div class="m-sub">複数行まとめて入力できます。1行＝「必要ポイント 報酬名」</div>
+    <textarea id="rw-bulk" style="min-height:120px" placeholder="5000 Liteガチャ券&#10;30000 お気に入り券&#10;100000 G85以上ガチャ券"></textarea>
+    <button class="btn primary" onclick="saveRewards()">追加</button>
+    <button class="btn ghost" onclick="closeModal('m-rw')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ============ モーダル：周回コスト ============ -->
+<div class="modal-bg" id="m-lap">
+  <div class="modal">
+    <div class="grip"></div>
+    <h2>周回コスト設定</h2>
+    <div class="m-sub" id="m-lap-board"></div>
+    <div class="grid2">
+      <div><label>1周あたり獲得pt</label><input type="number" id="l-pt" inputmode="numeric" placeholder="例：26000"></div>
+      <div><label>1周あたり所要（分）</label><input type="number" id="l-min" inputmode="decimal" placeholder="例：3"></div>
+    </div>
+    <div class="grid2">
+      <div><label>1周あたり消費GP</label><input type="number" id="l-gp" inputmode="numeric" placeholder="例：20"></div>
+      <div><label>1周あたり消費BP</label><input type="number" id="l-bp" inputmode="numeric" placeholder="空欄可"></div>
+    </div>
+    <div class="m-sub" style="margin-top:16px">資源換算の共通設定（全イベント共通）</div>
+    <div class="grid2">
+      <div><label>GP自然回復（/時）</label><input type="number" id="l-gpregen" inputmode="decimal"></div>
+      <div><label>GP回復薬1個の回復量</label><input type="number" id="l-healgp" inputmode="numeric"></div>
+    </div>
+    <div class="grid2">
+      <div><label>BP自然回復（/時）</label><input type="number" id="l-bpregen" inputmode="decimal"></div>
+      <div><label>BP回復薬1個の回復量</label><input type="number" id="l-bphealamt" inputmode="numeric"></div>
+    </div>
+    <label>GP回復薬1個あたりのバモ換算</label>
+    <input type="number" id="l-vamoheal" inputmode="decimal">
+    <div class="note">特効倍率やデッキ変更で1周ptが変わったら、その都度更新してください。数値を変えると換算はすべて自動で再計算されます。</div>
+    <button class="btn primary" onclick="saveLap()">保存</button>
+    <button class="btn ghost" onclick="closeModal('m-lap')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ============ モーダル：データ管理 ============ -->
+<div class="modal-bg" id="m-data">
+  <div class="modal">
+    <div class="grip"></div>
+    <h2>データ管理</h2>
+    <div class="m-sub">データはこの端末のブラウザ内（localStorage）に保存されます。念のため定期的にバックアップしてください。</div>
+    <button class="btn ghost" onclick="exportJSON()">JSONバックアップを書き出す</button>
+    <label>バックアップを読み込む（貼り付け）</label>
+    <textarea id="import-text" placeholder="書き出したJSONをここに貼り付け"></textarea>
+    <button class="btn ghost" onclick="importJSON()">読み込んで復元</button>
+    <div class="note">復元は現在のデータを上書きします。読み込み前に現在のデータの書き出しを推奨します。</div>
+    <button class="btn ghost" onclick="db.settings.guideDismissed=false;saveDB();closeModal('m-data');showHome();" style="margin-top:18px">使い方ガイドを再表示</button>
+    <button class="btn primary" onclick="closeModal('m-data')">閉じる</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================
+   ランイベ手帳 v1.0  (Jクラ ランキングイベント管理)
+   データ層：localStorage / 単一ファイル / 依存なし
+===================================================== */
+
+/* ---------- 定数 ---------- */
+const LS_KEY = "jclub_ranibe_v1";
+const EVENT_TYPES = [
+  {id:"trophy",  name:"トロフィーランブル",       pt:"ランブルPt"},
+  {id:"emblem",  name:"エンブレムゲッター",       pt:"イベントPt"},
+  {id:"supporter",name:"集まれ！サポーター！",     pt:"イベントPt"},
+  {id:"panel",   name:"パネルストライカー",       pt:"ストライカーPt"},
+  {id:"town",    name:"つくろう！スタジアムタウン", pt:"にぎわいPt"},
+  {id:"media",   name:"マスメディア",             pt:"コイン"},
+  {id:"other",   name:"その他",                   pt:"Pt"},
+];
+const DEFAULT_RANKS = [10,50,100,300,500,1000];
+const STATUS_LABEL = {active:"開催中", done:"完了", draft:"下書き"};
+
+/* ---------- ストア ---------- */
+let db = loadDB();
+db.settings = db.settings || {};
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d && Array.isArray(d.events)){
+        /* v1.2以前の互換：回復薬(heal) → GP回復薬(gpHeal) へ移行 */
+        d.events.forEach(e=>(e.boards||[]).forEach(bd=>(bd.records||[]).forEach(r=>{
+          if(r.gpHeal==null && r.heal!=null) r.gpHeal = r.heal;
+        })));
+        return d;
+      }
+    }
+  }catch(e){ console.error("loadDB failed", e); }
+  return {version:1, events:[]};
+}
+function saveDB(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(db)); }
+  catch(e){ alert("保存に失敗しました。空き容量を確認してください。\n" + e.message); }
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+/* ---------- 画面状態 ---------- */
+const state = {
+  homeFilter:"active",
+  evId:null, boardId:null,
+  tab:"dash",
+  editRecId:null, editBoardMode:null, /* 'new' | boardId */
+  chartSel:null,
+  learnType:"all",
+};
+const $ = id => document.getElementById(id);
+const ev = () => db.events.find(e=>e.id===state.evId) || null;
+const board = () => { const e=ev(); return e ? (e.boards.find(b=>b.id===state.boardId) || e.boards[0]) : null; };
+
+/* ---------- ユーティリティ ---------- */
+function fmt(n){
+  if(n===null||n===undefined||isNaN(n)) return "—";
+  return Math.round(n).toLocaleString("ja-JP");
+}
+function fmt1(n){
+  if(n===null||n===undefined||!isFinite(n)) return "—";
+  return (Math.round(n*10)/10).toLocaleString("ja-JP",{minimumFractionDigits:0,maximumFractionDigits:1});
+}
+function fmtDT(ts){
+  const d = new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+function toLocalInput(ts){
+  const d = ts ? new Date(ts) : new Date();
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function fromLocalInput(v){ return v ? new Date(v).getTime() : null; }
+function hoursBetween(a,b){ return (b-a)/3600000; }
+function remainHours(e){
+  if(!e || !e.end) return null;
+  return Math.max(0, hoursBetween(Date.now(), e.end));
+}
+function remainText(e){
+  const h = remainHours(e);
+  if(h===null) return "終了日時未設定";
+  if(h<=0) return "終了";
+  const d = Math.floor(h/24), hh = Math.floor(h%24), mm = Math.floor((h*60)%60);
+  if(d>0) return `残り ${d}日 ${hh}時間`;
+  if(hh>0) return `残り ${hh}時間 ${mm}分`;
+  return `残り ${mm}分`;
+}
+function typeName(id){ const t=EVENT_TYPES.find(t=>t.id===id); return t?t.name:"その他"; }
+
+/* =====================================================
+   計算ロジック（引き継ぎ資料 §6-§7 準拠）
+===================================================== */
+function sortedRecords(b){
+  return [...(b.records||[])].sort((a,x)=>a.ts-x.ts);
+}
+function borderSeries(b, rank){
+  return sortedRecords(b)
+    .map(r => ({ts:r.ts, v: r.borders && r.borders[rank]!=null && r.borders[rank]!=="" ? Number(r.borders[rank]) : null}))
+    .filter(p => p.v!==null && !isNaN(p.v));
+}
+function mySeries(b){
+  return sortedRecords(b)
+    .map(r => ({ts:r.ts, v: r.myPoints!=null && r.myPoints!=="" ? Number(r.myPoints) : null}))
+    .filter(p => p.v!==null && !isNaN(p.v));
+}
+function speedOf(series){ /* 直近時速 */
+  if(series.length < 2) return null;
+  const a = series[series.length-2], b = series[series.length-1];
+  const h = hoursBetween(a.ts, b.ts);
+  if(h <= 0) return null;
+  return (b.v - a.v) / h;
+}
+function avgSpeedOf(series){ /* 全体平均時速 */
+  if(series.length < 2) return null;
+  const a = series[0], b = series[series.length-1];
+  const h = hoursBetween(a.ts, b.ts);
+  if(h <= 0) return null;
+  return (b.v - a.v) / h;
+}
+/* ---------- 実績カーブ学習（過去イベントのボーダー推移から終盤加速を学習） ---------- */
+function buildProfiles(excludeEvId){
+  /* 終了済みイベントの各ボーダー系列を「経過率p × 最終値比f」の正規化カーブに変換 */
+  const out = [];
+  db.events.forEach(e=>{
+    if(e.id===excludeEvId) return;
+    if(!e.start || !e.end || e.end<=e.start) return;
+    if(e.end > Date.now()) return; /* 終了済みのみ学習対象 */
+    (e.boards||[]).forEach(b=>{
+      const ranks = new Set();
+      (b.records||[]).forEach(r=>{ if(r.borders) Object.keys(r.borders).forEach(k=>ranks.add(k)); });
+      ranks.forEach(rk=>{
+        const s = borderSeries(b, rk);
+        if(s.length < 3) return;
+        const dur = e.end - e.start;
+        const pts = s.map(pt=>({p:(pt.ts-e.start)/dur, v:pt.v})).filter(x=>x.p>0 && x.p<=1.05);
+        if(pts.length < 3) return;
+        const last = pts[pts.length-1];
+        if(last.p < 0.9) return;      /* 終盤の記録がない系列は最終値が不明なため除外 */
+        if(last.v <= 0) return;
+        const curve = pts.map(x=>({p:Math.min(x.p,1), f:Math.max(0, Math.min(x.v/last.v, 1))}));
+        out.push({type:e.type, ev:e.name, rank:rk, dur: e.end-e.start, curve});
+      });
+    });
+  });
+  return out;
+}
+function profileF(curve, p){
+  /* カーブ上の経過率pにおける最終値比fを線形補間（両端は(0,0)(1,1)で固定） */
+  if(p<=0) return 0;
+  if(p>=1) return 1;
+  const pts = [{p:0,f:0}, ...curve, {p:1,f:1}].sort((a,b)=>a.p-b.p);
+  for(let i=1;i<pts.length;i++){
+    if(p <= pts[i].p){
+      const a=pts[i-1], b=pts[i];
+      if(b.p===a.p) return b.f;
+      return a.f + (b.f-a.f)*(p-a.p)/(b.p-a.p);
+    }
+  }
+  return 1;
+}
+function median(arr){
+  const a=[...arr].sort((x,y)=>x-y);
+  const n=a.length;
+  return n%2 ? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2;
+}
+function curvePrediction(e, b, tRank){
+  /* 過去カーブから終了時ボーダーを推定。学習データがなければ null */
+  if(!e.start || !e.end || tRank==null) return null;
+  const bd = borderSeries(b, tRank);
+  if(!bd.length) return null;
+  const last = bd[bd.length-1];
+  const p = (last.ts - e.start)/(e.end - e.start);
+  if(p<=0.02 || p>=0.98) return null;
+  const all = buildProfiles(e.id);
+  const same = all.filter(x=>x.type===e.type);
+  const use = same.length ? same : all;
+  if(!use.length) return null;
+  const finals = [];
+  use.forEach(pr=>{
+    const f = profileF(pr.curve, p);
+    if(f >= 0.02){ const v = last.v / f; if(isFinite(v)) finals.push(v); }
+  });
+  if(!finals.length) return null;
+  finals.sort((a,b)=>a-b);
+  /* グラフ描画用パス：各カーブの推定最終値×形状の中央値を8点サンプリング */
+  const path = [];
+  for(let i=0;i<=8;i++){
+    const q = p + (1-p)*i/8;
+    const vs = use.map(pr=>{
+      const fp = profileF(pr.curve, p);
+      if(fp < 0.02) return null;
+      return (last.v/fp) * profileF(pr.curve, q);
+    }).filter(v=>v!=null && isFinite(v));
+    if(vs.length) path.push({p:q, ts: e.start + q*(e.end-e.start), v: median(vs)});
+  }
+  return {pred: median(finals), min: finals[0], max: finals[finals.length-1],
+          n: use.length, sameType: !!same.length, p, path};
+}
+function maxSpeedOf(series){
+  /* 記録区間ごとの時速の最大値（15分未満の間隔はノイズとして除外） */
+  let mx = null;
+  for(let i=1;i<series.length;i++){
+    const h = hoursBetween(series[i-1].ts, series[i].ts);
+    if(h < 0.25) continue;
+    const s = (series[i].v - series[i-1].v)/h;
+    if(mx===null || s>mx) mx = s;
+  }
+  return mx;
+}
+function latestResource(b, key){
+  const recs = sortedRecords(b);
+  for(let i=recs.length-1;i>=0;i--){
+    const v = numOrNull(recs[i][key]);
+    if(v!=null) return v;
+  }
+  return null;
+}
+function firstResource(b, key){
+  const recs = sortedRecords(b);
+  for(let i=0;i<recs.length;i++){
+    const v = numOrNull(recs[i][key]);
+    if(v!=null) return v;
+  }
+  return null;
+}
+function resourceCount(b, key){
+  return sortedRecords(b).filter(r=>numOrNull(r[key])!=null).length;
+}
+function recommendIntervalH(rh){
+  /* 残り時間に応じた推奨記録間隔（終盤ほど密に） */
+  if(rh==null) return 12;
+  if(rh<=1) return 1/3;
+  if(rh<=6) return 1;
+  if(rh<=24) return 3;
+  return 12;
+}
+function hoursToText(h){
+  if(h==null || !isFinite(h)) return "—";
+  if(h < 1) return `${Math.max(1,Math.round(h*60))}分`;
+  if(h < 48){
+    const hh = Math.floor(h), mm = Math.round((h-hh)*60);
+    return mm ? `${hh}時間${mm}分` : `${hh}時間`;
+  }
+  return `${Math.floor(h/24)}日${Math.floor(h%24)}時間`;
+}
+function targetRankOf(e, b){
+  if(b && b.targetRank) return Number(b.targetRank);
+  if(e && e.targetRank) return Number(e.targetRank);
+  return null;
+}
+function calc(e, b){
+  const tRank = targetRankOf(e, b);
+  const my = mySeries(b);
+  const bd = tRank!=null ? borderSeries(b, tRank) : [];
+  const myLast = my.length ? my[my.length-1].v : null;
+  const bdLast = bd.length ? bd[bd.length-1].v : null;
+  const mySpd  = speedOf(my), myAvg = avgSpeedOf(my);
+  const myMaxSpd = maxSpeedOf(my);
+  const bdSpd  = speedOf(bd), bdAvg = avgSpeedOf(bd);
+  const rh = remainHours(e);
+  const margin = (e.safetyMargin!=null ? Number(e.safetyMargin) : 5) / 100;
+
+  let linPred=null, curve=null, pred=null, predSrc=null,
+      safety=null, need=null, needSpd=null, status="none";
+  if(bdLast!=null && rh!=null && rh>0){
+    if(bdSpd!=null) linPred = bdLast + bdSpd*rh;
+    curve = curvePrediction(e, b, tRank);
+    /* 採用予測：線形と実績カーブの高い方（終盤加速を織り込む安全側） */
+    if(linPred!=null || curve){
+      if(curve && (linPred==null || curve.pred >= linPred)){ pred = curve.pred; predSrc="curve"; }
+      else { pred = linPred; predSrc="linear"; }
+      safety = pred * (1+margin);
+      if(myLast!=null){
+        need = Math.max(0, safety - myLast);
+        needSpd = rh>0 ? need/rh : (need>0 ? Infinity : 0);
+        status = myLast >= safety ? "safe" : (myLast >= pred ? "warn" : "danger");
+      }
+    }
+  }else if(bdLast!=null && myLast!=null && rh!=null && rh<=0){
+    /* イベント終了後：最終値で判定 */
+    pred = bdLast; safety = bdLast; need = Math.max(0, bdLast-myLast); needSpd=0;
+    status = myLast >= bdLast ? "safe" : "danger";
+  }
+  return {tRank, my, bd, myLast, bdLast, mySpd, myAvg, myMaxSpd, bdSpd, bdAvg, rh, margin,
+          linPred, curve, pred, predSrc, safety, need, needSpd, status};
+}
+const STATUS_TEXT = {safe:"安全圏", warn:"要注意", danger:"ペース不足", none:"データ不足"};
+
+/* =====================================================
+   ホーム
+===================================================== */
+function setHomeFilter(f){
+  state.homeFilter = f;
+  document.querySelectorAll("#home-seg button").forEach(b=>b.classList.toggle("on", b.dataset.f===f));
+  renderHome();
+}
+function renderHome(){
+  const list = $("ev-list");
+  const guide = db.settings.guideDismissed ? "" :
+    `<div class="card guide"><h3>使い方は3ステップだけ</h3>
+      <div style="font-size:14px;line-height:2.1">
+        <b style="color:var(--me)">①</b> ランイベが始まったらイベントを作る（2回目からは複製が速い）<br>
+        <b style="color:var(--me)">②</b> 気づいたときに「自分のpt」と「ボーダー」を記録する<br>
+        <b style="color:var(--me)">③</b> 終了間際に最終値を記録して「完了」にする
+      </div>
+      <div class="note">これだけで予測・行動換算・撤退判定・学習はすべて自動で動きます。</div>
+      <button class="small-link" onclick="dismissGuide()">閉じる（設定はデータ画面から戻せます）</button>
+    </div>`;
+  let evs = [...db.events];
+  if(state.homeFilter==="active") evs = evs.filter(e=>e.status==="active"||e.status==="draft");
+  if(state.homeFilter==="done")   evs = evs.filter(e=>e.status==="done");
+  evs.sort((a,b)=>(b.start||0)-(a.start||0));
+  if(!evs.length){
+    list.innerHTML = guide + `<div class="empty">イベントがありません。<br>右下の「＋ イベント」から最初のランイベを登録しましょう。</div>`;
+    return;
+  }
+  list.innerHTML = guide + evs.map(e=>{
+    const b0 = e.boards[0]; const c = calc(e, b0);
+    const chipCls = e.status==="active" ? "live" : (e.status==="done" ? "done" : "draft");
+    const st = c.status!=="none" ? `判定 <b>${STATUS_TEXT[c.status]}</b>` : "";
+    const allTs = e.boards.flatMap(bd=>(bd.records||[]).map(r=>r.ts));
+    const sinceH = allTs.length ? hoursBetween(Math.max(...allTs), Date.now()) : null;
+    const overdue = e.status==="active" && sinceH!=null && sinceH > recommendIntervalH(remainHours(e));
+    const recBadge = (e.status==="active" && sinceH!=null)
+      ? `<span style="color:${overdue?"var(--warn)":"var(--faint)"}">${overdue?"⏱ ":""}記録 ${hoursToText(sinceH)}前</span>` : "";
+    return `<button class="ev-card" onclick="showEvent('${e.id}')">
+      <span class="chip ${chipCls}">${STATUS_LABEL[e.status]}</span>
+      <div class="type">${typeName(e.type)}</div>
+      <div class="name">${esc(e.name||"（無題）")}</div>
+      <div class="meta">
+        <span>${remainText(e)}</span>
+        ${c.tRank?`<span>目標 <b>${c.tRank}位</b></span>`:""}
+        ${st?`<span>${st}</span>`:""}
+        ${recBadge}
+      </div>
+    </button>`;
+  }).join("");
+}
+function dismissGuide(){ db.settings.guideDismissed = true; saveDB(); renderHome(); }
+function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+/* =====================================================
+   イベント詳細
+===================================================== */
+function showHome(){
+  state.evId=null;
+  $("view-event").classList.add("hidden");
+  $("view-learn").classList.add("hidden");
+  $("view-home").classList.remove("hidden");
+  renderHome();
+  window.scrollTo(0,0);
+}
+function showEvent(id){
+  state.evId=id;
+  const e=ev(); if(!e) return;
+  state.boardId = e.boards[0].id;
+  state.tab="dash"; state.chartSel=null;
+  $("view-home").classList.add("hidden");
+  $("view-learn").classList.add("hidden");
+  $("view-event").classList.remove("hidden");
+  document.querySelectorAll("#ev-tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t==="dash"));
+  renderEvent();
+  window.scrollTo(0,0);
+}
+function setTab(t){
+  state.tab=t;
+  document.querySelectorAll("#ev-tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t===t));
+  renderEvent();
+}
+function setBoard(id){
+  state.boardId=id; state.chartSel=null;
+  renderEvent();
+}
+function onEventFab(){
+  if(state.tab==="rw") openRewardModal();
+  else openRecordModal();
+}
+function renderEvent(){
+  const e=ev(); if(!e) return showHome();
+  $("ev-title").textContent = e.name || "（無題）";
+  /* ボードバー */
+  const bb = $("board-bar");
+  if(e.boards.length===1){
+    bb.innerHTML = `<button class="add" onclick="openBoardModal('new')">＋ ボード追加</button>`;
+    bb.style.display = state.tab==="rw" ? "none" : "flex";
+  }else{
+    bb.style.display = state.tab==="rw" ? "none" : "flex";
+    bb.innerHTML = e.boards.map(b=>
+      `<button class="${b.id===board().id?'on':''}" onclick="setBoard('${b.id}')" oncontextmenu="return false">${esc(b.name)}</button>`
+    ).join("") + `<button class="add" onclick="openBoardModal('new')">＋</button>`;
+  }
+  ["dash","recs","chart","rw"].forEach(t=>$("tab-"+t).classList.toggle("hidden", state.tab!==t));
+  $("ev-fab").textContent = state.tab==="rw" ? "＋ 報酬" : "＋ 記録";
+  if(state.tab==="dash") renderDash();
+  if(state.tab==="recs") renderRecs();
+  if(state.tab==="chart"){ renderChart(); }
+  if(state.tab==="rw") renderRewards();
+}
+
+/* ---------- 状況タブ ---------- */
+function renderDash(){
+  const e=ev(), b=board(); const c=calc(e,b);
+  const pn = e.pointName || "Pt";
+  const recsAll = sortedRecords(b);
+  const lastTs = recsAll.length ? recsAll[recsAll.length-1].ts : null;
+  const sinceH = lastTs!=null ? hoursBetween(lastTs, Date.now()) : null;
+  const stCls = {safe:"s-safe",warn:"s-warn",danger:"s-danger",none:"s-none"}[c.status];
+  const diff = (c.myLast!=null && c.bdLast!=null) ? c.myLast-c.bdLast : null;
+  const boardNote = e.boards.length>1 ? `「${esc(b.name)}」ボード` : "";
+
+  let html = `
+  <div class="paceboard">
+    <div class="pb-status"><span class="st ${stCls}">${STATUS_TEXT[c.status]}</span></div>
+    <div class="pb-grid">
+      <div class="pb-side me">
+        <div class="who">自分 ME</div>
+        <div class="pt">${fmt(c.myLast)}</div>
+        <div class="lb">${esc(pn)}${c.mySpd!=null?` ／ 時速 ${fmt(c.mySpd)}`:""}</div>
+      </div>
+      <div class="pb-side bd">
+        <div class="who">ボーダー ${c.tRank??"—"}位</div>
+        <div class="pt">${fmt(c.bdLast)}</div>
+        <div class="lb">${esc(pn)}${c.bdSpd!=null?` ／ 時速 ${fmt(c.bdSpd)}`:""}</div>
+      </div>
+    </div>
+    <div class="pb-diff">ボーダー差
+      <span class="num ${diff==null?"":(diff>=0?"diff-plus":"diff-minus")}">${diff==null?"—":(diff>=0?"+":"")+fmt(diff)}</span>
+      　・　${remainText(e)}${sinceH!=null?`　・　記録 ${hoursToText(sinceH)}前`:""} ${boardNote?`　・　${boardNote}`:""}
+    </div>
+  </div>`;
+
+  /* --- 周回コスト前計算 --- */
+  const lap = b.lap||{}, gset = db.settings||{};
+  const lapPt = numOrNull(lap.pt), lapMin = numOrNull(lap.min);
+  const laps = (lapPt && c.need!=null && c.need>0) ? Math.ceil(c.need/lapPt) : null;
+  const lapHours = (laps!=null && lapMin!=null) ? laps*lapMin/60 : null;
+  /* --- 撤退判定 --- */
+  const alerts = [];
+  if(c.status==="warn" || c.status==="danger"){
+    if(c.needSpd===Infinity) alerts.push("残り時間がなく、安全ラインに届かない可能性が高いです");
+    if(isFinite(c.needSpd) && c.needSpd>0 && c.myMaxSpd!=null && c.needSpd > c.myMaxSpd)
+      alerts.push(`必要時速 ${fmt(c.needSpd)}/h が、このイベントでの自分の最大実績 ${fmt(c.myMaxSpd)}/h を上回っています`);
+    if(lapHours!=null && c.rh!=null && lapHours > c.rh)
+      alerts.push(`必要周回時間 約${fmt1(lapHours)}時間 が残り時間（${fmt1(c.rh)}時間）を超えています`);
+  }
+  if(alerts.length){
+    html += `<div class="alert"><h4>⚠ 撤退判定</h4><ul>${alerts.map(x=>`<li>${x}</li>`).join("")}</ul>
+      <div class="n">目標順位を一段下げるか、累計報酬までで切り上げる判断も検討してください。バモの追い課金前に一度立ち止まる目安です（最終判断はご自身で）。</div></div>`;
+  }
+  /* --- 記録が足りない時のガイド --- */
+  if(c.status==="none" && e.status==="active"){
+    html += `<div class="card guide"><h3>予測を動かすには</h3>
+      <div class="note" style="margin-top:0;font-size:12px">「自分のpt」と「目標${c.tRank??"—"}位のボーダー」の記録が<b>2回分</b>たまると、予測・判定・換算が自動で動き出します。現在：自分 ${c.my.length}回 ／ ボーダー ${c.bd.length}回。</div>
+    </div>`;
+  }
+  /* --- 記録リマインド --- */
+  if(e.status==="active" && c.rh!=null && c.rh>0 && sinceH!=null){
+    const iv = recommendIntervalH(c.rh);
+    if(sinceH > iv){
+      html += `<div class="remind">⏱ 最後の記録から <b>${hoursToText(sinceH)}</b> 経過しています。終了まで ${hoursToText(c.rh)} のため、<b>${hoursToText(iv)}おき</b>の記録を推奨します。${c.rh<=24?"終盤はボーダーが加速するため、記録間隔が予測精度に直結します。":""}</div>`;
+    }
+  }
+  const srcLabel = c.predSrc==="curve"
+    ? `実績カーブ（${c.curve.sameType?"同種":"全種"}${c.curve.n}系列）`
+    : (c.predSrc==="linear" ? "線形" : "—");
+  html += `<div class="card"><h3>終了時予測（推定値）</h3>
+    <div class="stat-grid">
+      <div class="stat"><div class="k">採用予測ボーダー<br><span style="color:var(--gold)">${srcLabel}</span></div><div class="v">${fmt(c.pred)}</div></div>
+      <div class="stat"><div class="k">安全ライン（+${e.safetyMargin!=null?e.safetyMargin:5}%）</div><div class="v">${fmt(c.safety)}</div></div>
+      <div class="stat"><div class="k">必要ポイント</div><div class="v">${fmt(c.need)}</div></div>
+      <div class="stat"><div class="k">必要時速</div><div class="v">${c.needSpd===Infinity?"間に合わない可能性":fmt(c.needSpd)}<span class="u">${c.needSpd===Infinity?"":"/h"}</span></div></div>
+    </div>
+    <div class="stat-grid" style="margin-top:10px">
+      <div class="stat"><div class="k">線形予測（直近時速）</div><div class="v" style="font-size:14px">${fmt(c.linPred)}</div></div>
+      <div class="stat"><div class="k">実績カーブ予測</div><div class="v" style="font-size:14px">${c.curve?fmt(c.curve.pred):"履歴なし"}</div></div>
+    </div>
+    ${c.curve?`<div class="note">カーブ予測レンジ：楽観 ${fmt(c.curve.min)} 〜 悲観 ${fmt(c.curve.max)}（過去${c.curve.n}系列、現在の経過率 ${Math.round(c.curve.p*100)}%）。完了イベントが増えるほど精度が上がります。</div>`
+      :`<div class="note">実績カーブ予測は、完了イベントのボーダー推移から終盤加速を学習して算出します。イベントを「完了」にして蓄積すると、次回から線形予測より正確な予測が使えます。</div>`}
+  </div>`;
+
+  /* --- 行動換算（周回コスト） --- */
+  if(lapPt){
+    if(c.need!=null && c.need>0 && laps!=null){
+      const gpNeed = numOrNull(lap.gp)!=null ? laps*Number(lap.gp) : null;
+      const bpNeed = numOrNull(lap.bp)!=null ? laps*Number(lap.bp) : null;
+      let stats = `<div class="stat"><div class="k">必要周回数</div><div class="v">${fmt(laps)}<span class="u">周</span></div></div>`;
+      stats += `<div class="stat"><div class="k">必要プレイ時間</div><div class="v">${lapHours!=null?fmt1(lapHours):"—"}<span class="u">h${c.rh!=null?` ／残り${fmt1(c.rh)}h`:""}</span></div></div>`;
+      if(gpNeed!=null) stats += `<div class="stat"><div class="k">必要GP</div><div class="v">${fmt(gpNeed)}</div></div>`;
+      if(bpNeed!=null) stats += `<div class="stat"><div class="k">必要BP</div><div class="v">${fmt(bpNeed)}</div></div>`;
+      let balance = "";
+      const regen = (numOrNull(gset.gpRegen)!=null && c.rh!=null) ? Math.floor(Number(gset.gpRegen)*c.rh) : null;
+      if(gpNeed!=null && regen!=null){
+        const short = Math.max(0, gpNeed - regen);
+        balance = `<div class="note">GP収支：必要 ${fmt(gpNeed)} − 自然回復見込み ${fmt(regen)} → 不足 <b style="color:${short>0?"var(--warn)":"var(--safe)"}">${fmt(short)}</b>`;
+        const healGp = numOrNull(gset.healGp);
+        if(short>0 && healGp){
+          const heals = Math.ceil(short/healGp);
+          const curHeal = latestResource(b,"gpHeal");
+          balance += `　≈ GP回復薬 ${fmt(heals)}個${curHeal!=null?`（所持 ${fmt(curHeal)}個）`:""}`;
+          const vph = numOrNull(gset.vamoPerHeal);
+          if(vph && curHeal!=null && heals>curHeal){
+            balance += `　不足分 ≈ <b style="color:var(--warn)">${fmt((heals-curHeal)*vph)}バモ</b>`;
+          }
+        }
+        balance += `</div>`;
+      }
+      const bpRegenTotal = (numOrNull(gset.bpRegen)!=null && c.rh!=null) ? Math.floor(Number(gset.bpRegen)*c.rh) : null;
+      if(bpNeed!=null && bpRegenTotal!=null){
+        const bshort = Math.max(0, bpNeed - bpRegenTotal);
+        balance += `<div class="note">BP収支：必要 ${fmt(bpNeed)} − 自然回復見込み ${fmt(bpRegenTotal)} → 不足 <b style="color:${bshort>0?"var(--warn)":"var(--safe)"}">${fmt(bshort)}</b>`;
+        const bpAmt = numOrNull(gset.bpHealAmount);
+        if(bshort>0 && bpAmt){
+          const bheals = Math.ceil(bshort/bpAmt);
+          const curBheal = latestResource(b,"bpHeal");
+          balance += `　≈ BP回復薬 ${fmt(bheals)}個${curBheal!=null?`（所持 ${fmt(curBheal)}個）`:""}`;
+        }
+        balance += `</div>`;
+      }
+      html += `<div class="card"><h3>行動換算（1周 ${fmt(lapPt)}pt${lapMin!=null?` ・${fmt1(lapMin)}分`:""}）</h3>
+        <div class="stat-grid">${stats}</div>${balance}
+        <button class="small-link" onclick="openLapModal()">周回コストを変更</button></div>`;
+    }else if(c.need===0){
+      html += `<div class="card"><h3>行動換算</h3><div class="note">安全ラインに到達済みです。順位維持のための様子見周回に切り替えて、ボーダーの動きを継続記録してください。</div>
+        <button class="small-link" onclick="openLapModal()">周回コストを変更</button></div>`;
+    }else{
+      html += `<div class="card"><h3>行動換算</h3><div class="note">予測が計算できるようになると（記録2点以上）、必要ポイントを周回数・時間・資源に換算します。</div></div>`;
+    }
+  }else{
+    html += `<div class="card"><h3>行動換算</h3>
+      <div class="note">「1周あたりの獲得pt」を設定すると、必要ポイントを周回数・プレイ時間・GP/BP・バモに自動換算します。</div>
+      <button class="small-link" onclick="openLapModal()">周回コストを設定</button></div>`;
+  }
+  html += `<div class="card"><h3>ペース詳細</h3>
+    <div class="stat-grid">
+      <div class="stat"><div class="k">自分の直近時速</div><div class="v">${fmt(c.mySpd)}<span class="u">/h</span></div></div>
+      <div class="stat"><div class="k">自分の全体平均</div><div class="v">${fmt(c.myAvg)}<span class="u">/h</span></div></div>
+      <div class="stat"><div class="k">ボーダー直近時速</div><div class="v">${fmt(c.bdSpd)}<span class="u">/h</span></div></div>
+      <div class="stat"><div class="k">ボーダー全体平均</div><div class="v">${fmt(c.bdAvg)}<span class="u">/h</span></div></div>
+    </div>
+  </div>`;
+
+  /* 最新の資源スナップショット */
+  const lastR = recsAll.length ? recsAll[recsAll.length-1] : null;
+  if(lastR){
+    html += `<div class="card"><h3>最新の資源（${fmtDT(lastR.ts)} 時点）</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="k">GP回復薬</div><div class="v">${fmt(latestResource(b,"gpHeal"))}</div></div>
+        <div class="stat"><div class="k">BP回復薬</div><div class="v">${fmt(latestResource(b,"bpHeal"))}</div></div>
+        <div class="stat"><div class="k">バモ</div><div class="v">${fmt(latestResource(b,"vamo"))}</div></div>
+        <div class="stat"><div class="k">特効値</div><div class="v">${lastR.tokko?esc(lastR.tokko)+"%":"—"}</div></div>
+      </div>
+    </div>`;
+    /* 資源消費（イベント通算）：最初の記録と最新の記録の差分 */
+    const cons = [["vamo","バモ"],["gpHeal","GP回復薬"],["bpHeal","BP回復薬"]].map(([k,lb])=>{
+      if(resourceCount(b,k) < 2) return null;
+      const f=firstResource(b,k), l=latestResource(b,k), d=f-l;
+      return `<div class="stat"><div class="k">${lb}消費</div>
+        <div class="v" style="color:${d>0?"var(--me)":"var(--safe)"}">${d>=0?fmt(d):"+"+fmt(-d)}</div>
+        <div class="k" style="margin-top:3px">${fmt(f)} → ${fmt(l)}</div></div>`;
+    }).filter(Boolean);
+    if(cons.length){
+      html += `<div class="card"><h3>資源消費（イベント通算）</h3>
+        <div class="stat-grid">${cons.join("")}</div>
+        <div class="note">最初の記録と最新の記録の差分です。途中の購入・報酬獲得分を含むため目安。<b>開始時・途中・終了時</b>に残数を記録しておくと、完了後に「このイベントの実コスト」として振り返れます。</div>
+      </div>`;
+    }
+  }
+  if(e.tokko || e.memo){
+    html += `<div class="card"><h3>イベントメモ</h3>
+      ${e.tokko?`<div style="font-size:13px;margin-bottom:6px">特効：${esc(e.tokko)}</div>`:""}
+      ${e.memo?`<div style="font-size:13px;color:var(--sub);white-space:pre-wrap">${esc(e.memo)}</div>`:""}
+    </div>`;
+  }
+  html += `<button class="btn primary" onclick="openRecordModal()">いまの状況を記録する</button>`;
+  $("tab-dash").innerHTML = html;
+}
+function numOrNull(v){ return (v===null||v===undefined||v==="") ? null : Number(v); }
+
+/* ---------- 記録タブ ---------- */
+function renderRecs(){
+  const e=ev(), b=board();
+  const recs = sortedRecords(b).reverse();
+  const tRank = targetRankOf(e,b);
+  if(!recs.length){
+    $("tab-recs").innerHTML = `<div class="empty">まだ記録がありません。<br>＋から最初の記録を追加しましょう。<br><span style="font-size:11px">序盤は1日2〜3回、終盤は数時間おきの記録が予測精度を上げます。</span></div>`;
+    return;
+  }
+  $("tab-recs").innerHTML = recs.map(r=>{
+    const bdv = (tRank!=null && r.borders) ? r.borders[tRank] : null;
+    const rkeys = ["vamo","gpHeal","bpHeal"];
+    const res = rkeys.map(k=>numOrNull(r[k])).some(v=>v!=null)
+      ? `<span class="cell"><span class="k">バモ/GP薬/BP薬</span>${rkeys.map(k=>{const v=numOrNull(r[k]);return v==null?"–":fmt(v);}).join(" / ")}</span>` : "";
+    return `<button class="rec" onclick="openRecordModal('${r.id}')">
+      <div class="top"><span class="ts">${fmtDT(r.ts)}</span><span class="rank">${r.myRank?`自分 ${fmt(r.myRank)}位`:""}</span></div>
+      <div class="row">
+        <span class="cell c-me"><span class="k">自分</span>${fmt(numOrNull(r.myPoints))}</span>
+        <span class="cell c-bd"><span class="k">${tRank??"—"}位ボーダー</span>${fmt(numOrNull(bdv))}</span>
+        ${r.tokko?`<span class="cell"><span class="k">特効</span>${esc(r.tokko)}%</span>`:""}
+        ${res}
+      </div>
+      ${r.memo?`<div class="memo">${esc(r.memo)}</div>`:""}
+    </button>`;
+  }).join("");
+}
+
+/* ---------- 報酬タブ ---------- */
+function renderRewards(){
+  const e=ev(), b=ev().boards[0];
+  const c=calc(e, board());
+  const rws = [...(e.rewards||[])].sort((a,x)=>a.points-x.points);
+  let html = "";
+  if(rws.length){
+    const next = rws.find(r=>!r.done && (c.myLast==null || r.points > c.myLast));
+    const reached = rws.filter(r=>c.myLast!=null && r.points<=c.myLast && !r.done);
+    if(next && c.myLast!=null){
+      html += `<div class="next-rw">次の報酬まで <b>${fmt(next.points - c.myLast)}</b><br>${fmt(next.points)}：${esc(next.label)}</div>`;
+    }
+    if(reached.length){
+      html += `<div class="next-rw" style="border-left-color:var(--safe)">到達済み・未チェックの報酬が ${reached.length} 件あります</div>`;
+    }
+    html += rws.map(r=>{
+      const reach = c.myLast!=null && r.points<=c.myLast;
+      return `<div class="rw ${r.done?"got":""} ${reach?"reach":""}">
+        <button class="chk" onclick="toggleReward('${r.id}')">✓</button>
+        <span class="pt">${fmt(r.points)}</span>
+        <span class="lb">${esc(r.label)}</span>
+        <button class="del" onclick="removeReward('${r.id}')">×</button>
+      </div>`;
+    }).join("");
+  }else{
+    html = `<div class="empty">累計報酬が未登録です。<br>＋からゲーム内の報酬テーブルを写しておくと、<br>次の報酬までの残りポイントを自動表示します。</div>`;
+  }
+  $("tab-rw").innerHTML = html;
+}
+function toggleReward(id){
+  const e=ev(); const r=e.rewards.find(r=>r.id===id); if(!r)return;
+  r.done=!r.done; saveDB(); renderRewards();
+}
+function removeReward(id){
+  const e=ev();
+  if(!confirm("この報酬を削除しますか？")) return;
+  e.rewards = e.rewards.filter(r=>r.id!==id); saveDB(); renderRewards();
+}
+
+/* =====================================================
+   グラフ（canvas・依存なし）
+===================================================== */
+function renderChart(){
+  const cv = $("chart");
+  const e=ev(), b=board(); const c=calc(e,b);
+  const W = cv.clientWidth || (cv.parentElement.clientWidth-16);
+  const H = 300;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = W*dpr; cv.height = H*dpr;
+  cv.style.height = H+"px";
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+
+  const padL=54, padR=14, padT=14, padB=26;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+
+  /* --- データ範囲 --- */
+  const pts = [];
+  c.my.forEach(p=>pts.push(p));
+  c.bd.forEach(p=>pts.push(p));
+  if(!pts.length){
+    ctx.fillStyle = "#6C7B9C"; ctx.font = "13px -apple-system,sans-serif"; ctx.textAlign="center";
+    ctx.fillText("記録が追加されるとグラフを表示します", W/2, H/2);
+    state.chartGeo = null;
+    return;
+  }
+  let t0 = e.start || Math.min(...pts.map(p=>p.ts));
+  let t1 = e.end   || Math.max(...pts.map(p=>p.ts));
+  t0 = Math.min(t0, ...pts.map(p=>p.ts));
+  t1 = Math.max(t1, ...pts.map(p=>p.ts));
+  if(t1<=t0) t1 = t0 + 3600000;
+  let v0 = 0;
+  let v1 = Math.max(...pts.map(p=>p.v), c.safety||0, c.pred||0, c.curve?c.curve.pred:0);
+  if(v1<=v0) v1 = v0+10;
+  v1 *= 1.06;
+
+  const X = ts => padL + (ts-t0)/(t1-t0)*plotW;
+  const Y = v  => padT + (1-(v-v0)/(v1-v0))*plotH;
+
+  /* --- グリッド＆軸 --- */
+  ctx.strokeStyle = "#1D2942"; ctx.lineWidth = 1;
+  ctx.fillStyle = "#6C7B9C"; ctx.font = "10px ui-monospace,monospace";
+  const ySteps = 4;
+  for(let i=0;i<=ySteps;i++){
+    const v = v0 + (v1-v0)*i/ySteps;
+    const y = Y(v);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+    ctx.textAlign = "right";
+    ctx.fillText(shortNum(v), padL-6, y+3);
+  }
+  /* X軸ラベル（開始・中間・終了） */
+  ctx.textAlign="center";
+  [t0,(t0+t1)/2,t1].forEach(t=>{
+    const d=new Date(t);
+    ctx.fillText(`${d.getMonth()+1}/${d.getDate()}`, Math.min(Math.max(X(t),padL+12),W-padR-12), H-8);
+  });
+
+  /* --- イベント終了線 --- */
+  if(e.end && e.end<=t1 && e.end>=t0){
+    const x=X(e.end);
+    ctx.strokeStyle="#3A4A6E"; ctx.setLineDash([2,4]);
+    ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /* --- 予測線（ボーダー最終点→終了時予測） --- */
+  if(c.bd.length && c.pred!=null && e.end){
+    const last = c.bd[c.bd.length-1];
+    if(c.linPred!=null){
+      ctx.strokeStyle = "rgba(76,132,238,.55)"; ctx.lineWidth=2; ctx.setLineDash([5,5]);
+      ctx.beginPath(); ctx.moveTo(X(last.ts),Y(last.v)); ctx.lineTo(X(e.end),Y(c.linPred)); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    /* 実績カーブ予測パス（金色破線） */
+    if(c.curve && c.curve.path && c.curve.path.length){
+      ctx.strokeStyle = "rgba(216,178,74,.8)"; ctx.lineWidth=2; ctx.setLineDash([3,4]);
+      ctx.beginPath(); ctx.moveTo(X(last.ts), Y(last.v));
+      c.curve.path.forEach(pt=>ctx.lineTo(X(pt.ts), Y(pt.v)));
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    /* 安全ラインマーカー */
+    if(c.safety!=null){
+      const x=X(e.end), y=Y(c.safety);
+      ctx.strokeStyle="#E8A33D"; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(x-9,y); ctx.lineTo(x+2,y); ctx.stroke();
+      ctx.fillStyle="#E8A33D"; ctx.font="9px ui-monospace,monospace"; ctx.textAlign="right";
+      ctx.fillText("安全", x-12, y+3);
+    }
+  }
+
+  /* --- 系列描画 --- */
+  drawLine(ctx, c.bd, X, Y, "#4C84EE");
+  drawLine(ctx, c.my, X, Y, "#E0424D");
+
+  /* --- タップ選択ハイライト --- */
+  if(state.chartSel){
+    const p = state.chartSel;
+    ctx.strokeStyle="rgba(233,238,247,.7)"; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(X(p.ts),padT); ctx.lineTo(X(p.ts),H-padB); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(X(p.ts),Y(p.v),6,0,7); ctx.strokeStyle=p.color; ctx.lineWidth=2; ctx.stroke();
+  }
+  state.chartGeo = {X,Y,t0,t1,v0,v1,series:[
+    ...c.my.map(p=>({...p,color:"#E0424D",who:"自分"})),
+    ...c.bd.map(p=>({...p,color:"#4C84EE",who:`${c.tRank}位ボーダー`})),
+  ]};
+}
+function drawLine(ctx, series, X, Y, color){
+  if(!series.length) return;
+  ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineJoin="round";
+  ctx.beginPath();
+  series.forEach((p,i)=> i? ctx.lineTo(X(p.ts),Y(p.v)) : ctx.moveTo(X(p.ts),Y(p.v)));
+  ctx.stroke();
+  ctx.fillStyle=color;
+  series.forEach(p=>{ ctx.beginPath(); ctx.arc(X(p.ts),Y(p.v),3.4,0,7); ctx.fill(); });
+}
+function shortNum(v){
+  if(v>=1e8) return (v/1e8).toFixed(1)+"億";
+  if(v>=1e4) return (v/1e4).toFixed(v>=1e6?0:1)+"万";
+  return Math.round(v).toString();
+}
+$("chart").addEventListener("click", evn=>{
+  const g = state.chartGeo; if(!g||!g.series.length) return;
+  const rect = evn.target.getBoundingClientRect();
+  const x = evn.clientX-rect.left, y = evn.clientY-rect.top;
+  let best=null, bestD=1e9;
+  g.series.forEach(p=>{
+    const d = Math.hypot(g.X(p.ts)-x, g.Y(p.v)-y);
+    if(d<bestD){bestD=d;best=p;}
+  });
+  if(best && bestD<28){
+    state.chartSel=best;
+    $("chart-tip").innerHTML = `<b>${fmtDT(best.ts)}</b>　${best.who}：<b>${fmt(best.v)}</b>`;
+    renderChart();
+  }
+});
+
+/* =====================================================
+   モーダル共通
+===================================================== */
+function openModal(id){ $(id).classList.add("open"); }
+function closeModal(id){ $(id).classList.remove("open"); }
+document.querySelectorAll(".modal-bg").forEach(m=>{
+  m.addEventListener("click", e=>{ if(e.target===m) m.classList.remove("open"); });
+});
+
+/* ---------- イベント作成/編集 ---------- */
+function openEventModal(editId){
+  state.editEvId = editId || null;
+  const sel = $("f-type");
+  sel.innerHTML = EVENT_TYPES.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+  const e = editId ? db.events.find(x=>x.id===editId) : null;
+  $("m-event-title").textContent = e ? "イベントを編集" : "新規イベント";
+  $("ev-danger").classList.toggle("hidden", !e);
+  if(e){
+    sel.value = e.type;
+    $("f-name").value = e.name||"";
+    $("f-start").value = e.start?toLocalInput(e.start):"";
+    $("f-end").value = e.end?toLocalInput(e.end):"";
+    $("f-target").value = e.targetRank??"";
+    $("f-margin").value = e.safetyMargin??5;
+    $("f-ptname").value = e.pointName||"";
+    $("f-tokko").value = e.tokko||"";
+    $("f-memo").value = e.memo||"";
+    $("f-status").value = e.status||"active";
+  }else{
+    sel.value="trophy";
+    $("f-name").value="";
+    $("f-start").value=toLocalInput(Date.now());
+    const w = new Date(); w.setDate(w.getDate()+7);
+    $("f-end").value=toLocalInput(w.getTime());
+    $("f-target").value="100";
+    $("f-margin").value="5";
+    $("f-ptname").value="ランブルPt";
+    $("f-tokko").value=""; $("f-memo").value="";
+    $("f-status").value="active";
+  }
+  openModal("m-event");
+}
+function onTypeChange(){
+  const t = EVENT_TYPES.find(t=>t.id===$("f-type").value);
+  if(t && !state.editEvId) $("f-ptname").value = t.pt;
+}
+function saveEvent(){
+  const name = $("f-name").value.trim();
+  if(!name){ alert("イベント名を入力してください。"); return; }
+  const start = fromLocalInput($("f-start").value);
+  const end   = fromLocalInput($("f-end").value);
+  if(start && end && end<=start){ alert("終了日時が開始日時より前になっています。"); return; }
+  const data = {
+    type:$("f-type").value, name,
+    start, end,
+    targetRank: $("f-target").value?Number($("f-target").value):null,
+    safetyMargin: $("f-margin").value!==""?Number($("f-margin").value):5,
+    pointName: $("f-ptname").value.trim()||"Pt",
+    tokko: $("f-tokko").value.trim(),
+    memo: $("f-memo").value.trim(),
+    status: $("f-status").value,
+  };
+  if(state.editEvId){
+    const e = db.events.find(x=>x.id===state.editEvId);
+    Object.assign(e, data);
+  }else{
+    const e = {id:uid(), ...data,
+      boards:[{id:uid(), name:"メイン", targetRank:null, borderRanks:[...DEFAULT_RANKS], records:[]}],
+      rewards:[]};
+    db.events.unshift(e);
+    state.evId = e.id;
+  }
+  saveDB(); closeModal("m-event");
+  if(state.editEvId && state.evId===state.editEvId) renderEvent();
+  else if(!state.editEvId) showEvent(state.evId);
+  else renderHome();
+  state.editEvId=null;
+}
+function deleteEvent(){
+  const e = db.events.find(x=>x.id===state.editEvId); if(!e) return;
+  if(!confirm(`「${e.name}」を削除しますか？\n記録もすべて削除されます。元に戻せません。`)) return;
+  db.events = db.events.filter(x=>x.id!==state.editEvId);
+  saveDB(); closeModal("m-event"); state.editEvId=null;
+  showHome();
+}
+
+/* ---------- 周回コスト設定 ---------- */
+function openLapModal(){
+  const e=ev(), b=board(); if(!b) return;
+  const lap=b.lap||{}, st=db.settings||{};
+  $("m-lap-board").textContent = e.boards.length>1 ? `ボード：${b.name}` : "";
+  $("l-pt").value=lap.pt??""; $("l-min").value=lap.min??"";
+  $("l-gp").value=lap.gp??""; $("l-bp").value=lap.bp??"";
+  $("l-gpregen").value=st.gpRegen??""; $("l-healgp").value=st.healGp??"";
+  $("l-bpregen").value=st.bpRegen??""; $("l-bphealamt").value=st.bpHealAmount??"";
+  $("l-vamoheal").value=st.vamoPerHeal??"";
+  openModal("m-lap");
+}
+function saveLap(){
+  const b=board(); if(!b) return;
+  b.lap = {pt:numOrNull($("l-pt").value), min:numOrNull($("l-min").value),
+           gp:numOrNull($("l-gp").value), bp:numOrNull($("l-bp").value)};
+  db.settings = db.settings||{};
+  db.settings.gpRegen    = numOrNull($("l-gpregen").value);
+  db.settings.healGp     = numOrNull($("l-healgp").value);
+  db.settings.bpRegen    = numOrNull($("l-bpregen").value);
+  db.settings.bpHealAmount = numOrNull($("l-bphealamt").value);
+  db.settings.vamoPerHeal= numOrNull($("l-vamoheal").value);
+  saveDB(); closeModal("m-lap"); renderEvent();
+}
+
+/* ---------- イベント複製 ---------- */
+function duplicateEvent(){
+  const src = db.events.find(x=>x.id===state.editEvId); if(!src) return;
+  const dur = (src.start && src.end && src.end>src.start) ? src.end-src.start : 7*24*3600000;
+  const now = Date.now();
+  const cp = {
+    id:uid(), type:src.type,
+    name: (src.name||"").replace(/（コピー）$/,"") + "（コピー）",
+    start: now, end: now+dur,
+    targetRank: src.targetRank, safetyMargin: src.safetyMargin,
+    pointName: src.pointName, tokko: src.tokko, memo: src.memo,
+    status: "active",
+    boards: src.boards.map(b=>({
+      id:uid(), name:b.name, targetRank:b.targetRank,
+      borderRanks:[...(b.borderRanks||[])],
+      lap: b.lap ? {...b.lap} : undefined,
+      records:[],
+    })),
+    rewards: (src.rewards||[]).map(r=>({id:uid(), points:r.points, label:r.label, done:false})),
+  };
+  db.events.unshift(cp);
+  saveDB();
+  closeModal("m-event"); state.editEvId=null;
+  showEvent(cp.id);
+  setTimeout(()=>openEventModal(cp.id), 60);
+}
+
+/* ---------- ボード作成/編集 ---------- */
+function openBoardModal(mode){
+  state.editBoardMode = mode; /* 'new' or boardId */
+  const isNew = mode==="new";
+  const b = isNew ? null : ev().boards.find(x=>x.id===mode);
+  $("m-board-title").textContent = isNew ? "ボードを追加" : "ボードを編集";
+  $("board-danger").classList.toggle("hidden", isNew || ev().boards.length<=1);
+  $("b-name").value = b ? b.name : "";
+  $("b-ranks").value = b ? (b.borderRanks||[]).join(",") : DEFAULT_RANKS.join(",");
+  $("b-target").value = b && b.targetRank ? b.targetRank : "";
+  closeModal("m-rec");
+  openModal("m-board");
+}
+function saveBoard(){
+  const e = ev();
+  const name = $("b-name").value.trim() || "メイン";
+  const ranks = $("b-ranks").value.split(/[,、\s]+/).map(s=>Number(s)).filter(n=>n>0 && isFinite(n));
+  if(!ranks.length){ alert("記録する順位を1つ以上入力してください。"); return; }
+  ranks.sort((a,b)=>a-b);
+  const target = $("b-target").value ? Number($("b-target").value) : null;
+  if(state.editBoardMode==="new"){
+    const b = {id:uid(), name, targetRank:target, borderRanks:ranks, records:[]};
+    e.boards.push(b); state.boardId=b.id;
+  }else{
+    const b = e.boards.find(x=>x.id===state.editBoardMode);
+    if(b){ b.name=name; b.borderRanks=ranks; b.targetRank=target; }
+  }
+  saveDB(); closeModal("m-board"); renderEvent();
+}
+function deleteBoard(){
+  const e = ev();
+  if(e.boards.length<=1){ alert("最後のボードは削除できません。"); return; }
+  const b = e.boards.find(x=>x.id===state.editBoardMode); if(!b) return;
+  if(!confirm(`ボード「${b.name}」を削除しますか？\n${(b.records||[]).length}件の記録も削除されます。`)) return;
+  e.boards = e.boards.filter(x=>x.id!==state.editBoardMode);
+  state.boardId = e.boards[0].id;
+  saveDB(); closeModal("m-board"); renderEvent();
+}
+
+/* ---------- 折りたたみ ---------- */
+function setFold(fid, bid, open, label){
+  const f=$(fid), btn=$(bid);
+  f.classList.remove("open"); if(open) f.classList.add("open");
+  btn.textContent = (open?"▾ ":"▸ ") + label;
+}
+function toggleFold(fid, bid){
+  const f=$(fid), btn=$(bid);
+  const open = !f.classList.contains("open");
+  f.classList.toggle("open", open);
+  btn.textContent = (open?"▾ ":"▸ ") + btn.textContent.replace(/^[▸▾]\s*/,"");
+}
+
+/* ---------- 記録作成/編集 ---------- */
+function openRecordModal(recId){
+  const e=ev(), b=board(); if(!e||!b) return;
+  state.editRecId = recId||null;
+  const r = recId ? b.records.find(x=>x.id===recId) : null;
+  $("m-rec-title").textContent = r ? "記録を編集" : "記録を追加";
+  $("m-rec-board").textContent = e.boards.length>1 ? `ボード：${b.name}` : "";
+  $("rec-danger").classList.toggle("hidden", !r);
+  $("r-ts").value = toLocalInput(r?r.ts:Date.now());
+  $("r-mypt-label").textContent = `自分の${e.pointName||"ポイント"}`;
+  $("r-mypt").value = r&&r.myPoints!=null ? r.myPoints : "";
+  $("r-myrank").value = r&&r.myRank!=null ? r.myRank : "";
+  /* 前回値プレースホルダ */
+  const prevRecs = sortedRecords(b).filter(x=>!r || x.ts<r.ts);
+  const prevRec = prevRecs.length ? prevRecs[prevRecs.length-1] : null;
+  $("r-mypt").placeholder = prevRec&&prevRec.myPoints!=null ? `前回 ${fmt(prevRec.myPoints)}` : "0";
+  $("r-myrank").placeholder = prevRec&&prevRec.myRank!=null ? `前回 ${fmt(prevRec.myRank)}位` : "未確認は空欄";
+  /* ボーダー入力欄：目標順位を最上段に、他は折りたたみ */
+  const prev = latestBorders(b, r?r.ts:null);
+  const ranks = (b.borderRanks||[]);
+  const tRank = targetRankOf(e, b);
+  const primary = (tRank!=null && ranks.includes(tRank)) ? tRank : (ranks[0] ?? null);
+  const others = ranks.filter(rk=>rk!==primary);
+  const biHtml = rk => {
+    const v = r&&r.borders&&r.borders[rk]!=null ? r.borders[rk] : "";
+    const ph = prev[rk]!=null ? `前回 ${fmt(prev[rk])}` : "";
+    return `<div class="bi"><span class="rk">${rk}位</span>
+      <input type="number" inputmode="numeric" data-rk="${rk}" value="${v}" placeholder="${ph}" oninput="checkBorderWarn()"></div>`;
+  };
+  $("r-primary-label").textContent = primary!=null ? `目標 ${primary}位のボーダー` : "ボーダーポイント";
+  $("r-border-primary").innerHTML = primary!=null ? biHtml(primary) : "";
+  $("r-borders").innerHTML = others.map(biHtml).join("");
+  const othersHasVal = !!(r && r.borders && others.some(rk=>r.borders[rk]!=null && r.borders[rk]!==""));
+  setFold("r-borders-fold","r-borders-toggle", othersHasVal, `他の順位のボーダーも記録（${others.length}件）`);
+  const resHasVal = !!(r && (["gpHeal","bpHeal","vamo"].some(k=>numOrNull(r[k])!=null) || (r.tokko!=null && r.tokko!=="")));
+  setFold("r-res-fold","r-res-toggle", resHasVal, "資源も記録（回復薬・バモ・特効）");
+  $("r-border-warn").classList.remove("show");
+  $("r-vamo").value = r&&r.vamo!=null?r.vamo:"";
+  $("r-gpheal").value = r&&r.gpHeal!=null?r.gpHeal:"";
+  $("r-bpheal").value = r&&r.bpHeal!=null?r.bpHeal:"";
+  $("r-tokko").value = r&&r.tokko!=null?r.tokko:"";
+  $("r-memo").value = r?r.memo||"":"";
+  openModal("m-rec");
+}
+function latestBorders(b, beforeTs){
+  /* 指定時刻より前の最新記録のボーダー値（入力ミス警告と placeholder 用） */
+  const recs = sortedRecords(b).filter(r=>beforeTs?r.ts<beforeTs:true);
+  const out = {};
+  recs.forEach(r=>{
+    if(r.borders) Object.keys(r.borders).forEach(k=>{
+      const v=numOrNull(r.borders[k]); if(v!=null) out[k]=v;
+    });
+  });
+  return out;
+}
+function checkBorderWarn(){
+  const b=board(); if(!b) return;
+  const tsv = fromLocalInput($("r-ts").value);
+  const prev = latestBorders(b, state.editRecId ? tsv : null);
+  let warn=false;
+  document.querySelectorAll("#r-border-primary input[data-rk], #r-borders input[data-rk]").forEach(inp=>{
+    const rk=inp.dataset.rk, v=numOrNull(inp.value);
+    if(v!=null && prev[rk]!=null && v<prev[rk]) warn=true;
+  });
+  $("r-border-warn").classList.toggle("show", warn);
+}
+function saveRecord(){
+  const e=ev(), b=board(); if(!e||!b) return;
+  const ts = fromLocalInput($("r-ts").value);
+  if(!ts){ alert("記録日時を入力してください。"); return; }
+  const borders = {};
+  document.querySelectorAll("#r-border-primary input[data-rk], #r-borders input[data-rk]").forEach(inp=>{
+    const v = inp.value.trim();
+    if(v!=="") borders[inp.dataset.rk] = Number(v);
+  });
+  const data = {
+    ts,
+    myPoints: numOrNull($("r-mypt").value),
+    myRank: numOrNull($("r-myrank").value),
+    borders,
+    vamo:numOrNull($("r-vamo").value),
+    gpHeal:numOrNull($("r-gpheal").value), bpHeal:numOrNull($("r-bpheal").value),
+    tokko: $("r-tokko").value.trim(),
+    memo: $("r-memo").value.trim(),
+  };
+  if(data.myPoints==null && !Object.keys(borders).length){
+    alert("自分のポイントかボーダーのどちらかは入力してください。"); return;
+  }
+  if(state.editRecId){
+    const r = b.records.find(x=>x.id===state.editRecId);
+    Object.assign(r, data);
+  }else{
+    b.records.push({id:uid(), ...data});
+  }
+  saveDB(); closeModal("m-rec"); state.editRecId=null;
+  renderEvent();
+}
+function deleteRecord(){
+  const b=board(); if(!b) return;
+  if(!confirm("この記録を削除しますか？")) return;
+  b.records = b.records.filter(x=>x.id!==state.editRecId);
+  saveDB(); closeModal("m-rec"); state.editRecId=null;
+  renderEvent();
+}
+
+/* ---------- 報酬 ---------- */
+function openRewardModal(){
+  $("rw-bulk").value="";
+  openModal("m-rw");
+}
+function saveRewards(){
+  const e=ev();
+  const lines = $("rw-bulk").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  let added=0;
+  lines.forEach(line=>{
+    const m = line.match(/^([\d,，]+)\s+(.+)$/);
+    if(m){
+      const pts = Number(m[1].replace(/[,，]/g,""));
+      if(pts>0){ e.rewards.push({id:uid(), points:pts, label:m[2].trim(), done:false}); added++; }
+    }
+  });
+  if(!added){ alert("読み取れる行がありませんでした。\n「必要ポイント 報酬名」の形式で入力してください。"); return; }
+  saveDB(); closeModal("m-rw"); renderRewards();
+}
+
+/* ---------- データ管理 ---------- */
+function openDataModal(){ $("import-text").value=""; openModal("m-data"); }
+function exportJSON(){
+  const text = JSON.stringify(db, null, 1);
+  if(navigator.share){
+    const file = new File([text], `ranibe_backup_${new Date().toISOString().slice(0,10)}.json`, {type:"application/json"});
+    navigator.share({files:[file], title:"ランイベ手帳バックアップ"}).catch(()=>copyFallback(text));
+  }else copyFallback(text);
+}
+function copyFallback(text){
+  const ta=document.createElement("textarea");
+  ta.value=text; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); alert("バックアップJSONをコピーしました。メモ帳などに貼り付けて保存してください。"); }
+  catch(e){ prompt("以下を全選択してコピーしてください", text); }
+  document.body.removeChild(ta);
+}
+function importJSON(){
+  const t = $("import-text").value.trim();
+  if(!t){ alert("JSONを貼り付けてください。"); return; }
+  let d;
+  try{ d = JSON.parse(t); }catch(e){ alert("JSONの形式が正しくありません。\n"+e.message); return; }
+  if(!d || !Array.isArray(d.events)){ alert("ランイベ手帳のバックアップ形式ではありません。"); return; }
+  if(!confirm(`イベント${d.events.length}件のデータで現在のデータを上書きします。よろしいですか？`)) return;
+  db = d; saveDB(); closeModal("m-data"); showHome();
+}
+
+/* =====================================================
+   学習データビューア
+===================================================== */
+function showLearn(){
+  state.learnType = "all";
+  $("view-home").classList.add("hidden");
+  $("view-event").classList.add("hidden");
+  $("view-learn").classList.remove("hidden");
+  renderLearn();
+  window.scrollTo(0,0);
+}
+function setLearnType(t){ state.learnType=t; renderLearn(); }
+function lateRate(pr, hours){
+  /* 「終了hours時間前のボーダー」から最終値までの上昇率 */
+  const durH = pr.dur/3600000;
+  if(!(durH > hours+2)) return null;
+  const p = 1 - hours/durH;
+  const f = profileF(pr.curve, p);
+  if(f < 0.02) return null;
+  return (1-f)/f;
+}
+function renderLearn(){
+  const all = buildProfiles(null);
+  const types = [...new Set(all.map(p=>p.type))];
+  const chips = $("learn-chips");
+  chips.style.display = "flex";
+  chips.innerHTML =
+    `<button class="${state.learnType==="all"?"on":""}" onclick="setLearnType('all')">すべて（${all.length}）</button>` +
+    types.map(t=>{
+      const n = all.filter(p=>p.type===t).length;
+      return `<button class="${state.learnType===t?"on":""}" onclick="setLearnType('${t}')">${typeName(t)}（${n}）</button>`;
+    }).join("");
+  const use = state.learnType==="all" ? all : all.filter(p=>p.type===state.learnType);
+  drawLearnChart(use);
+  if(!use.length){
+    $("learn-stats").innerHTML = `<div class="empty">学習データがありません。<br>イベント終了間際にボーダーを記録してから「完了」にすると、<br>その推移がここに蓄積され、予測に使われます。</div>`;
+    return;
+  }
+  const avg = arr => arr.length ? arr.reduce((s,x)=>s+x,0)/arr.length : null;
+  const r24 = use.map(p=>lateRate(p,24)).filter(v=>v!=null);
+  const r6  = use.map(p=>lateRate(p,6)).filter(v=>v!=null);
+  let out = `<div class="card"><h3>終盤の伸び（学習 ${use.length}系列）</h3>
+    <div class="stat-grid">
+      <div class="stat"><div class="k">最終24hの平均伸び率</div><div class="v">${avg(r24)!=null?"+"+Math.round(avg(r24)*100)+"%":"—"}</div></div>
+      <div class="stat"><div class="k">最終6hの平均伸び率</div><div class="v">${avg(r6)!=null?"+"+Math.round(avg(r6)*100)+"%":"—"}</div></div>
+    </div>
+    <div class="note">「終了24h（6h）前のボーダー」から最終確定値までの上昇率の平均です。開催中イベントの実績カーブ予測はこの形状データから算出されます。</div>
+  </div>`;
+  out += use.map(p=>{
+    const r = lateRate(p,24);
+    return `<div class="rec" style="cursor:default">
+      <div class="top"><span class="ts">${typeName(p.type)}</span><span class="rank">${p.rank}位系列</span></div>
+      <div class="row">
+        <span class="cell"><span class="k">イベント</span>${esc(p.ev)}</span>
+        <span class="cell c-bd"><span class="k">最終24hの伸び</span>${r!=null?"+"+Math.round(r*100)+"%":"—"}</span>
+        <span class="cell"><span class="k">期間</span>${fmt1(p.dur/3600000/24)}日</span>
+      </div></div>`;
+  }).join("");
+  $("learn-stats").innerHTML = out;
+}
+function drawLearnChart(use){
+  const cv = $("learn-chart");
+  const W = cv.clientWidth || (cv.parentElement.clientWidth-16) || 360, Hh = 280;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = W*dpr; cv.height = Hh*dpr; cv.style.height = Hh+"px";
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,Hh);
+  const padL=42, padR=12, padT=12, padB=26;
+  const X = p => padL + p*(W-padL-padR);
+  const Y = f => padT + (1-f)*(Hh-padT-padB);
+  ctx.strokeStyle="#1D2942"; ctx.lineWidth=1;
+  ctx.fillStyle="#6C7B9C"; ctx.font="10px ui-monospace,monospace";
+  for(let i=0;i<=4;i++){
+    const f=i/4, y=Y(f);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+    ctx.textAlign="right"; ctx.fillText(Math.round(f*100)+"%", padL-5, y+3);
+  }
+  ctx.textAlign="center";
+  [0,0.5,1].forEach(p=>ctx.fillText("経過"+Math.round(p*100)+"%", Math.min(Math.max(X(p),padL+18),W-padR-18), Hh-8));
+  if(!use.length){
+    ctx.fillText("学習データなし", W/2, Hh/2);
+    return;
+  }
+  ctx.lineWidth=1.5;
+  use.forEach(pr=>{
+    ctx.strokeStyle="rgba(76,132,238,.5)";
+    ctx.beginPath(); ctx.moveTo(X(0),Y(0));
+    for(let i=1;i<=40;i++){ const q=i/40; ctx.lineTo(X(q), Y(profileF(pr.curve,q))); }
+    ctx.stroke();
+  });
+  ctx.strokeStyle="#D8B24A"; ctx.lineWidth=3; ctx.lineJoin="round";
+  ctx.beginPath(); ctx.moveTo(X(0),Y(0));
+  for(let i=1;i<=40;i++){
+    const q=i/40;
+    ctx.lineTo(X(q), Y(median(use.map(pr=>profileF(pr.curve,q)))));
+  }
+  ctx.stroke();
+}
+
+/* ---------- 起動 ---------- */
+window.addEventListener("resize", ()=>{
+  if(state.evId && state.tab==="chart") renderChart();
+  if(!$("view-learn").classList.contains("hidden")) renderLearn();
+});
+renderHome();
+</script>
+</body>
+</html>
