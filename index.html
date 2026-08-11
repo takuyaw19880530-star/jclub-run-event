@@ -6,6 +6,30 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>ランイベ手帳</title>
+<script>
+/* ===== 自動更新チェック（iOSホーム画面アプリのキャッシュ対策） =====
+   このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
+   新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
+   その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
+window.__BUILD__ = "20260812.1";
+(function(){
+  try{
+    fetch(location.pathname, {cache:"no-store"})
+      .then(function(r){ return r.text(); })
+      .then(function(html){
+        var m = html.match(/window\.__BUILD__\s*=\s*"([^"]+)"/);
+        var latest = m && m[1];
+        if(latest && latest !== window.__BUILD__){
+          var qv = new URLSearchParams(location.search).get("v");
+          if(qv !== latest){
+            location.replace(location.pathname + "?v=" + encodeURIComponent(latest));
+          }
+        }
+      })
+      .catch(function(){ /* オフライン・ネットワークエラー時は何もせず現行表示を継続 */ });
+  }catch(e){}
+})();
+</script>
 <style>
 :root{
   --ink:#0B1220;        /* ナイトゲームの空 */
