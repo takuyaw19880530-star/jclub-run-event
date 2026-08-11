@@ -394,8 +394,12 @@ textarea{min-height:64px;resize:vertical}
     <button class="fold-toggle" id="r-res-toggle" onclick="toggleFold('r-res-fold','r-res-toggle')">▸ 資源も記録（回復薬・バモ・特効）</button>
     <div class="fold" id="r-res-fold">
       <div class="grid2">
-        <div><label>GP回復薬残</label><input type="number" id="r-gpheal" inputmode="numeric"></div>
-        <div><label>BP回復薬残</label><input type="number" id="r-bpheal" inputmode="numeric"></div>
+        <div><label>GP回復薬（100）残</label><input type="number" id="r-gpheal" inputmode="numeric"></div>
+        <div><label>GPハーフ（50）残</label><input type="number" id="r-gphealhalf" inputmode="numeric"></div>
+      </div>
+      <div class="grid2">
+        <div><label>BP回復薬（5）残</label><input type="number" id="r-bpheal" inputmode="numeric"></div>
+        <div><label>BPミニ（1）残</label><input type="number" id="r-bphealmini" inputmode="numeric"></div>
       </div>
       <div class="grid2">
         <div><label>バモ残</label><input type="number" id="r-vamo" inputmode="numeric"></div>
@@ -461,14 +465,11 @@ textarea{min-height:64px;resize:vertical}
     <div class="m-sub" style="margin-top:16px">資源換算の共通設定（全イベント共通）</div>
     <div class="grid2">
       <div><label>GP自然回復（/時）</label><input type="number" id="l-gpregen" inputmode="decimal"></div>
-      <div><label>GP回復薬1個の回復量</label><input type="number" id="l-healgp" inputmode="numeric"></div>
-    </div>
-    <div class="grid2">
       <div><label>BP自然回復（/時）</label><input type="number" id="l-bpregen" inputmode="decimal"></div>
-      <div><label>BP回復薬1個の回復量</label><input type="number" id="l-bphealamt" inputmode="numeric"></div>
     </div>
-    <label>GP回復薬1個あたりのバモ換算</label>
+    <label>GP回復薬フル1個あたりのバモ換算</label>
     <input type="number" id="l-vamoheal" inputmode="decimal">
+    <div class="note">回復薬の回復量は固定で計算します：GPフル=100 ／ GPハーフ=50 ／ BPフル=5 ／ BPミニ=1</div>
     <div class="note">特効倍率やデッキ変更で1周ptが変わったら、その都度更新してください。数値を変えると換算はすべて自動で再計算されます。</div>
     <button class="btn primary" onclick="saveLap()">保存</button>
     <button class="btn ghost" onclick="closeModal('m-lap')">キャンセル</button>
@@ -712,6 +713,36 @@ function latestResource(b, key){
     if(v!=null) return v;
   }
   return null;
+}
+const HEAL_UNITS = {gpHeal:100, gpHealHalf:50, bpHeal:5, bpHealMini:1};
+const HEAL_KEYS = {gp:["gpHeal","gpHealHalf"], bp:["bpHeal","bpHealMini"]};
+function healAmountOf(r, kind){
+  /* 1記録のGP/BP回復薬をGP量/BP量に換算した総量。両方未入力ならnull */
+  let any=false, sum=0;
+  HEAL_KEYS[kind].forEach(k=>{
+    const v = numOrNull(r[k]);
+    if(v!=null){ any=true; sum += v * HEAL_UNITS[k]; }
+  });
+  return any ? sum : null;
+}
+function latestHealAmount(b, kind){
+  const recs = sortedRecords(b);
+  for(let i=recs.length-1;i>=0;i--){
+    const v = healAmountOf(recs[i], kind);
+    if(v!=null) return v;
+  }
+  return null;
+}
+function firstHealAmount(b, kind){
+  const recs = sortedRecords(b);
+  for(let i=0;i<recs.length;i++){
+    const v = healAmountOf(recs[i], kind);
+    if(v!=null) return v;
+  }
+  return null;
+}
+function healRecCount(b, kind){
+  return sortedRecords(b).filter(r=>healAmountOf(r,kind)!=null).length;
 }
 function firstResource(b, key){
   const recs = sortedRecords(b);
@@ -990,14 +1021,19 @@ function renderDash(){
       if(gpNeed!=null && regen!=null){
         const short = Math.max(0, gpNeed - regen);
         balance = `<div class="note">GP収支：必要 ${fmt(gpNeed)} − 自然回復見込み ${fmt(regen)} → 不足 <b style="color:${short>0?"var(--warn)":"var(--safe)"}">${fmt(short)}</b>`;
-        const healGp = numOrNull(gset.healGp);
-        if(short>0 && healGp){
-          const heals = Math.ceil(short/healGp);
-          const curHeal = latestResource(b,"gpHeal");
-          balance += `　≈ GP回復薬 ${fmt(heals)}個${curHeal!=null?`（所持 ${fmt(curHeal)}個）`:""}`;
-          const vph = numOrNull(gset.vamoPerHeal);
-          if(vph && curHeal!=null && heals>curHeal){
-            balance += `　不足分 ≈ <b style="color:var(--warn)">${fmt((heals-curHeal)*vph)}バモ</b>`;
+        if(short > 0){
+          const stock = latestHealAmount(b,"gp");
+          if(stock != null){
+            if(stock >= short){
+              balance += `　→ 手持ちGP薬 <b style="color:var(--safe)">${fmt(stock)}GP分</b> で足ります`;
+            }else{
+              const rem = short - stock;
+              balance += `　→ 手持ちGP薬 ${fmt(stock)}GP分でも <b style="color:var(--warn)">${fmt(rem)}GP分</b> 不足（フル${fmt(Math.ceil(rem/100))}個相当）`;
+              const vph = numOrNull(gset.vamoPerHeal);
+              if(vph) balance += `　≈ ${fmt(Math.ceil(rem/100)*vph)}バモ`;
+            }
+          }else{
+            balance += `　≈ GP薬フル ${fmt(Math.ceil(short/100))}個相当`;
           }
         }
         balance += `</div>`;
@@ -1006,11 +1042,17 @@ function renderDash(){
       if(bpNeed!=null && bpRegenTotal!=null){
         const bshort = Math.max(0, bpNeed - bpRegenTotal);
         balance += `<div class="note">BP収支：必要 ${fmt(bpNeed)} − 自然回復見込み ${fmt(bpRegenTotal)} → 不足 <b style="color:${bshort>0?"var(--warn)":"var(--safe)"}">${fmt(bshort)}</b>`;
-        const bpAmt = numOrNull(gset.bpHealAmount);
-        if(bshort>0 && bpAmt){
-          const bheals = Math.ceil(bshort/bpAmt);
-          const curBheal = latestResource(b,"bpHeal");
-          balance += `　≈ BP回復薬 ${fmt(bheals)}個${curBheal!=null?`（所持 ${fmt(curBheal)}個）`:""}`;
+        if(bshort > 0){
+          const bstock = latestHealAmount(b,"bp");
+          if(bstock != null){
+            if(bstock >= bshort){
+              balance += `　→ 手持ちBP薬 <b style="color:var(--safe)">${fmt(bstock)}BP分</b> で足ります`;
+            }else{
+              balance += `　→ 手持ちBP薬 ${fmt(bstock)}BP分でも <b style="color:var(--warn)">${fmt(bshort-bstock)}BP分</b> 不足（フル${fmt(Math.ceil((bshort-bstock)/5))}個相当）`;
+            }
+          }else{
+            balance += `　≈ BP薬フル ${fmt(Math.ceil(bshort/5))}個相当`;
+          }
         }
         balance += `</div>`;
       }
@@ -1042,20 +1084,28 @@ function renderDash(){
   if(lastR){
     html += `<div class="card"><h3>最新の資源（${fmtDT(lastR.ts)} 時点）</h3>
       <div class="stat-grid">
-        <div class="stat"><div class="k">GP回復薬</div><div class="v">${fmt(latestResource(b,"gpHeal"))}</div></div>
-        <div class="stat"><div class="k">BP回復薬</div><div class="v">${fmt(latestResource(b,"bpHeal"))}</div></div>
+        <div class="stat"><div class="k">GP薬総量（フル${fmt(latestResource(b,"gpHeal"))}・ハーフ${fmt(latestResource(b,"gpHealHalf"))}）</div><div class="v">${fmt(latestHealAmount(b,"gp"))}<span class="u">GP分</span></div></div>
+        <div class="stat"><div class="k">BP薬総量（フル${fmt(latestResource(b,"bpHeal"))}・ミニ${fmt(latestResource(b,"bpHealMini"))}）</div><div class="v">${fmt(latestHealAmount(b,"bp"))}<span class="u">BP分</span></div></div>
         <div class="stat"><div class="k">バモ</div><div class="v">${fmt(latestResource(b,"vamo"))}</div></div>
         <div class="stat"><div class="k">特効値</div><div class="v">${lastR.tokko?esc(lastR.tokko)+"%":"—"}</div></div>
       </div>
     </div>`;
     /* 資源消費（イベント通算）：最初の記録と最新の記録の差分 */
-    const cons = [["vamo","バモ"],["gpHeal","GP回復薬"],["bpHeal","BP回復薬"]].map(([k,lb])=>{
-      if(resourceCount(b,k) < 2) return null;
-      const f=firstResource(b,k), l=latestResource(b,k), d=f-l;
-      return `<div class="stat"><div class="k">${lb}消費</div>
+    const consRows = [];
+    if(resourceCount(b,"vamo") >= 2){
+      const f=firstResource(b,"vamo"), l=latestResource(b,"vamo"), d=f-l;
+      consRows.push(`<div class="stat"><div class="k">バモ消費</div>
         <div class="v" style="color:${d>0?"var(--me)":"var(--safe)"}">${d>=0?fmt(d):"+"+fmt(-d)}</div>
-        <div class="k" style="margin-top:3px">${fmt(f)} → ${fmt(l)}</div></div>`;
-    }).filter(Boolean);
+        <div class="k" style="margin-top:3px">${fmt(f)} → ${fmt(l)}</div></div>`);
+    }
+    [["gp","GP薬","GP分"],["bp","BP薬","BP分"]].forEach(([kind,lb,unit])=>{
+      if(healRecCount(b,kind) < 2) return;
+      const f=firstHealAmount(b,kind), l=latestHealAmount(b,kind), d=f-l;
+      consRows.push(`<div class="stat"><div class="k">${lb}消費（${unit}換算）</div>
+        <div class="v" style="color:${d>0?"var(--me)":"var(--safe)"}">${d>=0?fmt(d):"+"+fmt(-d)}<span class="u">${unit}</span></div>
+        <div class="k" style="margin-top:3px">${fmt(f)} → ${fmt(l)} ${unit}</div></div>`);
+    });
+    const cons = consRows;
     if(cons.length){
       html += `<div class="card"><h3>資源消費（イベント通算）</h3>
         <div class="stat-grid">${cons.join("")}</div>
@@ -1085,9 +1135,13 @@ function renderRecs(){
   }
   $("tab-recs").innerHTML = recs.map(r=>{
     const bdv = (tRank!=null && r.borders) ? r.borders[tRank] : null;
-    const rkeys = ["vamo","gpHeal","bpHeal"];
-    const res = rkeys.map(k=>numOrNull(r[k])).some(v=>v!=null)
-      ? `<span class="cell"><span class="k">バモ/GP薬/BP薬</span>${rkeys.map(k=>{const v=numOrNull(r[k]);return v==null?"–":fmt(v);}).join(" / ")}</span>` : "";
+    const gpAmt = healAmountOf(r,"gp"), bpAmt = healAmountOf(r,"bp"), vm = numOrNull(r.vamo);
+    const resParts = [];
+    if(vm!=null) resParts.push(`バモ ${fmt(vm)}`);
+    if(gpAmt!=null) resParts.push(`GP薬 ${fmt(gpAmt)}GP分`);
+    if(bpAmt!=null) resParts.push(`BP薬 ${fmt(bpAmt)}BP分`);
+    const res = resParts.length
+      ? `<span class="cell"><span class="k">資源</span>${resParts.join(" / ")}</span>` : "";
     return `<button class="rec" onclick="openRecordModal('${r.id}')">
       <div class="top"><span class="ts">${fmtDT(r.ts)}</span><span class="rank">${r.myRank?`自分 ${fmt(r.myRank)}位`:""}</span></div>
       <div class="row">
@@ -1372,8 +1426,7 @@ function openLapModal(){
   $("m-lap-board").textContent = e.boards.length>1 ? `ボード：${b.name}` : "";
   $("l-pt").value=lap.pt??""; $("l-min").value=lap.min??"";
   $("l-gp").value=lap.gp??""; $("l-bp").value=lap.bp??"";
-  $("l-gpregen").value=st.gpRegen??""; $("l-healgp").value=st.healGp??"";
-  $("l-bpregen").value=st.bpRegen??""; $("l-bphealamt").value=st.bpHealAmount??"";
+  $("l-gpregen").value=st.gpRegen??""; $("l-bpregen").value=st.bpRegen??"";
   $("l-vamoheal").value=st.vamoPerHeal??"";
   openModal("m-lap");
 }
@@ -1383,9 +1436,7 @@ function saveLap(){
            gp:numOrNull($("l-gp").value), bp:numOrNull($("l-bp").value)};
   db.settings = db.settings||{};
   db.settings.gpRegen    = numOrNull($("l-gpregen").value);
-  db.settings.healGp     = numOrNull($("l-healgp").value);
   db.settings.bpRegen    = numOrNull($("l-bpregen").value);
-  db.settings.bpHealAmount = numOrNull($("l-bphealamt").value);
   db.settings.vamoPerHeal= numOrNull($("l-vamoheal").value);
   saveDB(); closeModal("m-lap"); renderEvent();
 }
@@ -1503,12 +1554,14 @@ function openRecordModal(recId){
   $("r-borders").innerHTML = others.map(biHtml).join("");
   const othersHasVal = !!(r && r.borders && others.some(rk=>r.borders[rk]!=null && r.borders[rk]!==""));
   setFold("r-borders-fold","r-borders-toggle", othersHasVal, `他の順位のボーダーも記録（${others.length}件）`);
-  const resHasVal = !!(r && (["gpHeal","bpHeal","vamo"].some(k=>numOrNull(r[k])!=null) || (r.tokko!=null && r.tokko!=="")));
+  const resHasVal = !!(r && (["gpHeal","gpHealHalf","bpHeal","bpHealMini","vamo"].some(k=>numOrNull(r[k])!=null) || (r.tokko!=null && r.tokko!=="")));
   setFold("r-res-fold","r-res-toggle", resHasVal, "資源も記録（回復薬・バモ・特効）");
   $("r-border-warn").classList.remove("show");
   $("r-vamo").value = r&&r.vamo!=null?r.vamo:"";
   $("r-gpheal").value = r&&r.gpHeal!=null?r.gpHeal:"";
+  $("r-gphealhalf").value = r&&r.gpHealHalf!=null?r.gpHealHalf:"";
   $("r-bpheal").value = r&&r.bpHeal!=null?r.bpHeal:"";
+  $("r-bphealmini").value = r&&r.bpHealMini!=null?r.bpHealMini:"";
   $("r-tokko").value = r&&r.tokko!=null?r.tokko:"";
   $("r-memo").value = r?r.memo||"":"";
   openModal("m-rec");
@@ -1550,7 +1603,8 @@ function saveRecord(){
     myRank: numOrNull($("r-myrank").value),
     borders,
     vamo:numOrNull($("r-vamo").value),
-    gpHeal:numOrNull($("r-gpheal").value), bpHeal:numOrNull($("r-bpheal").value),
+    gpHeal:numOrNull($("r-gpheal").value), gpHealHalf:numOrNull($("r-gphealhalf").value),
+    bpHeal:numOrNull($("r-bpheal").value), bpHealMini:numOrNull($("r-bphealmini").value),
     tokko: $("r-tokko").value.trim(),
     memo: $("r-memo").value.trim(),
   };
