@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260814.2";
+window.__BUILD__ = "20260815.2";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -413,7 +413,7 @@ textarea{min-height:64px;resize:vertical}
     <button class="fold-toggle" id="r-borders-toggle" onclick="toggleFold('r-borders-fold','r-borders-toggle')">▸ 他の順位のボーダーも記録</button>
     <div class="fold" id="r-borders-fold">
       <div class="border-inputs" id="r-borders"></div>
-      <button class="small-link" onclick="openBoardModal(state.boardId)">＋ 記録する順位を編集</button>
+      <button class="small-link" onclick="openBoardModal(state.boardId)">ボード設定を編集（種類・順位）</button>
     </div>
     <button class="fold-toggle" id="r-res-toggle" onclick="toggleFold('r-res-fold','r-res-toggle')">▸ 資源も記録（回復薬・バモ・特効）</button>
     <div class="fold" id="r-res-fold">
@@ -1025,15 +1025,13 @@ function renderEvent(){
   $("ev-title").textContent = e.name || "（無題）";
   /* ボードバー */
   const bb = $("board-bar");
-  if(e.boards.length===1){
-    bb.innerHTML = `<button class="add" onclick="openBoardModal('new')">＋ ボード追加</button>`;
-    bb.style.display = state.tab==="rw" ? "none" : "flex";
-  }else{
-    bb.style.display = state.tab==="rw" ? "none" : "flex";
-    bb.innerHTML = e.boards.map(b=>
-      `<button class="${b.id===board().id?'on':''}" onclick="setBoard('${b.id}')" oncontextmenu="return false">${esc(b.name)}</button>`
-    ).join("") + `<button class="add" onclick="openBoardModal('new')">＋</button>`;
-  }
+  bb.style.display = state.tab==="rw" ? "none" : "flex";
+  const KIND_MARK = {goal:"🎯", daily:"📅"};
+  bb.innerHTML = e.boards.map(x=>{
+    const on = x.id===board().id;
+    const mark = KIND_MARK[x.kind] ? KIND_MARK[x.kind]+" " : "";
+    return `<button class="${on?'on':''}" onclick="${on?`openBoardModal('${x.id}')`:`setBoard('${x.id}')`}" oncontextmenu="return false">${mark}${esc(x.name)}${on?" ✎":""}</button>`;
+  }).join("") + `<button class="add" onclick="openBoardModal('new')">＋</button>`;
   ["dash","recs","chart","rw"].forEach(t=>$("tab-"+t).classList.toggle("hidden", state.tab!==t));
   $("ev-fab").textContent = state.tab==="rw" ? "＋ 報酬" : "＋ 記録";
   if(state.tab==="dash") renderDash();
@@ -1918,6 +1916,26 @@ function openRecordModal(recId){
   const prevRec = prevRecs.length ? prevRecs[prevRecs.length-1] : null;
   $("r-mypt").placeholder = prevRec&&prevRec.myPoints!=null ? `前回 ${fmt(prevRec.myPoints)}` : "0";
   $("r-myrank").placeholder = prevRec&&prevRec.myRank!=null ? `前回 ${fmt(prevRec.myRank)}位` : "未確認は空欄";
+  /* 資源欄にも前回値プレースホルダ（それぞれ直近の非null値を遡って表示） */
+  const prevOf = k => {
+    for(let i=prevRecs.length-1;i>=0;i--){
+      const v = numOrNull(prevRecs[i][k]);
+      if(v!=null) return v;
+    }
+    return null;
+  };
+  [["r-gpheal","gpHeal"],["r-gphealhalf","gpHealHalf"],["r-bpheal","bpHeal"],["r-bphealmini","bpHealMini"],["r-vamo","vamo"]].forEach(([id,k])=>{
+    const v = prevOf(k);
+    $(id).placeholder = v!=null ? `前回 ${fmt(v)}` : "";
+  });
+  const prevTokko = (()=>{
+    for(let i=prevRecs.length-1;i>=0;i--){
+      const t = prevRecs[i].tokko;
+      if(t!=null && t!=="") return t;
+    }
+    return null;
+  })();
+  $("r-tokko").placeholder = prevTokko!=null ? `前回 ${prevTokko}` : "例：480";
   /* ボーダー入力欄：目標順位を最上段に、他は折りたたみ */
   const prev = latestBorders(b, r?r.ts:null);
   const ranks = (b.borderRanks||[]);
