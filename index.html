@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260815.4";
+window.__BUILD__ = "20260815.5";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -1147,35 +1147,48 @@ function renderDashDaily(e, b){
   /* 枠別サマリー（次回の枠選びの材料） */
   const zone = rewardZoneOf(b);
   {
-    const names = slotsOf(b);
-    const stats = names.map((nm,i)=>{
-      /* 各日の最終記録から、その枠の順位を集計 */
-      const perDay = {};
-      recs.forEach(r=>{
+    /* 枠名ごとに集計（途中で枠を入れ替えても混ざらないよう、位置ではなく名前で束ねる） */
+    const byName = {};   /* name -> {dayKey -> data} */
+    const order = [];
+    recs.forEach(r=>{
+      const names = (r.slotData && r.slotData.length) ? r.slotData.map(s=>s.name) : slotsOf(b);
+      names.forEach((nm,i)=>{
         const d = slotDataOf(r, i);
         if(d.rank==null) return;
-        const k = dayKeyOf(e,b,r.ts);
-        perDay[k] = d; /* 後の記録で上書き＝その日の最終 */
+        const key = nm || ("枠"+(i+1));
+        if(!byName[key]){ byName[key] = {}; order.push(key); }
+        byName[key][dayKeyOf(e,b,r.ts)] = d;   /* 同じ日は後の記録で上書き＝その日の最終 */
       });
+    });
+    const current = slotsOf(b);
+    const sortedNames = [...order].sort((x,y)=>{
+      const ix = current.indexOf(x), iy = current.indexOf(y);
+      if(ix>=0 && iy>=0) return ix-iy;   /* 現在走っている枠を先に、登録順で */
+      if(ix>=0) return -1;
+      if(iy>=0) return 1;
+      return 0;
+    });
+    const stats = sortedNames.map(nm=>{
+      const perDay = byName[nm];
       const days = Object.keys(perDay).map(Number).sort((a,x)=>a-x);
       if(!days.length) return null;
       const ranks = days.map(k=>perDay[k].rank);
       const scores = days.map(k=>perDay[k].score).filter(v=>v!=null);
       const inZone = ranks.filter(r=>r<=zone).length;
-      return {name:nm, n:days.length, best:Math.min(...ranks),
+      return {name:nm, active: current.includes(nm), n:days.length, best:Math.min(...ranks),
         avg: ranks.reduce((p,x)=>p+x,0)/ranks.length,
         inZone, rate: inZone/days.length,
         bestScore: scores.length ? Math.max(...scores) : null};
     }).filter(Boolean);
     if(stats.length){
       html += `<div class="card"><h3>枠別サマリー（次回の枠選び用）</h3>` +
-        stats.map(s=>`<div class="sumrow">
-          <span class="sn">${esc(s.name)}</span>
+        stats.map(s=>`<div class="sumrow" style="${s.active?"":"opacity:.6"}">
+          <span class="sn">${esc(s.name)}${s.active?"":' <span class="lb">過去</span>'}</span>
           <span class="v" style="color:${s.rate>=0.6?"var(--safe)":s.rate>0?"var(--warn)":"var(--danger)"}">${s.inZone}/${s.n}<span class="lb">報酬圏</span></span>
           <span class="v">${fmt(s.best)}<span class="lb">最高</span></span>
           <span class="v">${fmt(s.avg)}<span class="lb">平均</span></span>
         </div>`).join("") +
-        `<div class="note">${zone}位以内に入れた日数／記録した日数です。次回のマスメディアで、どの枠を選ぶかの判断材料になります。</div></div>`;
+        `<div class="note">${zone}位以内に入れた日数／その枠を走った日数です。枠を入れ替えた場合も、枠ごとに正しく集計されます。次回のマスメディアでどの枠を選ぶかの判断材料になります。</div></div>`;
     }
   }
   /* 日別の戦績（その日の全記録） */
