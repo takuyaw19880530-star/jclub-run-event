@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260815.6";
+window.__BUILD__ = "20260815.7";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -505,22 +505,22 @@ textarea{min-height:64px;resize:vertical}
     <div id="b-daily-fields" class="hidden">
       <label>日次リセット時刻（0〜23時）</label>
       <input type="number" id="b-reset" inputmode="numeric" placeholder="0" min="0" max="23">
-      <label>走っているランキングと、その報酬ライン</label>
+      <label>走っているランキングと目標順位</label>
       <div class="slots">
         <div class="slotrow">
           <div class="f"><input id="b-slot1" placeholder="枠1　例：シュートラッシュTOTAL"></div>
-          <div class="sin"><input type="number" id="b-zone1" inputmode="numeric" placeholder="100位"></div>
+          <div class="sin"><input type="number" id="b-zone1" inputmode="numeric" placeholder="目標順位"></div>
         </div>
         <div class="slotrow">
           <div class="f"><input id="b-slot2" placeholder="枠2　例：フォーチュングッズ1MATCH"></div>
-          <div class="sin"><input type="number" id="b-zone2" inputmode="numeric" placeholder="100位"></div>
+          <div class="sin"><input type="number" id="b-zone2" inputmode="numeric" placeholder="目標順位"></div>
         </div>
         <div class="slotrow">
           <div class="f"><input id="b-slot3" placeholder="枠3　例：リミットフォーメーション1MATCH"></div>
-          <div class="sin"><input type="number" id="b-zone3" inputmode="numeric" placeholder="100位"></div>
+          <div class="sin"><input type="number" id="b-zone3" inputmode="numeric" placeholder="目標順位"></div>
         </div>
       </div>
-      <div class="note">右側は、その枠で狙う報酬の順位です。ランキングごとに報酬が違うので、枠ごとに設定します（メインホールは10位、HARD系は100位、など）。</div>
+      <div class="note">右側は、その枠で自分が狙う順位です（任意）。ランキングごとに報酬の段階が違うので、狙うラインは自分で決めて入れてください。空欄でも順位の推移は記録されます。</div>
       <div class="note">ゲーム内でランキングが切り替わる時刻です。マスメディアは毎日13:30〜14:00に集計されるので <b>14</b> を設定してください。</div>
     </div>
     <div id="b-goal-fields" class="hidden">
@@ -885,21 +885,22 @@ function hoursToText(h){
 function normSlots(b){
   /* slotsを {name, zone} の配列に正規化（旧: 文字列配列 / 旧: 板共通rewardZone にも対応） */
   if(!b || !b.slots || !b.slots.length) return [];
-  const fallback = numOrNull(b.rewardZone) ?? numOrNull(b.targetRank) ?? null;
+  const fallback = numOrNull(b.rewardZone) ?? null;
   return b.slots.map(s=>typeof s === "string"
     ? {name:s, zone:fallback}
     : {name:s.name, zone: s.zone!=null ? s.zone : fallback});
 }
 function slotsOf(b){
   const s = normSlots(b);
-  return s.length ? s : [{name:"枠1", zone: numOrNull(b.targetRank) ?? 100}];
+  return s.length ? s : [{name:"枠1", zone: numOrNull(b.targetRank)}];
 }
 function zoneOfSlot(b, name, i){
+  /* その枠の目標順位。未設定なら null（＝色分け・達成率を出さない） */
   const s = normSlots(b);
   const hit = s.find(x=>x.name===name);
   if(hit && hit.zone!=null) return hit.zone;
   if(s[i] && s[i].zone!=null) return s[i].zone;
-  return numOrNull(b.rewardZone) ?? numOrNull(b.targetRank) ?? 100;
+  return numOrNull(b.rewardZone) ?? null;
 }
 function slotDataOf(r, i){
   /* 記録から枠iのデータを取り出す。枠0は旧形式(myRank/myPoints)にフォールバック */
@@ -1202,21 +1203,23 @@ function renderDashDaily(e, b){
       const ranks = days.map(k=>perDay[k].rank);
       const scores = days.map(k=>perDay[k].score).filter(v=>v!=null);
       const z = zoneOfSlot(b, nm, nameIdx[nm] ?? 0);
-      const inZone = ranks.filter(r=>r<=z).length;
+      const inZone = z!=null ? ranks.filter(r=>r<=z).length : null;
       return {name:nm, zone:z, active: current.includes(nm), n:days.length, best:Math.min(...ranks),
         avg: ranks.reduce((p,x)=>p+x,0)/ranks.length,
-        inZone, rate: inZone/days.length,
+        inZone, rate: z!=null ? inZone/days.length : null,
         bestScore: scores.length ? Math.max(...scores) : null};
     }).filter(Boolean);
     if(stats.length){
       html += `<div class="card"><h3>枠別サマリー（次回の枠選び用）</h3>` +
         stats.map(s=>`<div class="sumrow" style="${s.active?"":"opacity:.6"}">
-          <span class="sn">${esc(s.name)}${s.active?"":' <span class="lb">過去</span>'}<span class="lb">${s.zone}位</span></span>
-          <span class="v" style="color:${s.rate>=0.6?"var(--safe)":s.rate>0?"var(--warn)":"var(--danger)"}">${s.inZone}/${s.n}<span class="lb">報酬圏</span></span>
+          <span class="sn">${esc(s.name)}${s.active?"":' <span class="lb">過去</span>'}${s.zone!=null?`<span class="lb">目標${s.zone}位</span>`:""}</span>
+          ${s.rate!=null
+            ? `<span class="v" style="color:${s.rate>=0.6?"var(--safe)":s.rate>0?"var(--warn)":"var(--danger)"}">${s.inZone}/${s.n}<span class="lb">達成</span></span>`
+            : `<span class="v" style="color:var(--faint)">${s.n}<span class="lb">日</span></span>`}
           <span class="v">${fmt(s.best)}<span class="lb">最高</span></span>
           <span class="v">${fmt(s.avg)}<span class="lb">平均</span></span>
         </div>`).join("") +
-        `<div class="note">その枠の報酬ラインに届いた日数／走った日数です。ランキングごとに報酬が違うので、枠ごとのラインで判定しています。次回どの枠を選ぶかの判断材料になります。</div></div>`;
+        `<div class="note">目標を設定した枠は「達成した日数／走った日数」を表示します。ランキングごとに報酬の段階が違うため、判定は自分で決めた目標を基準にしています。次回どの枠を選ぶかの判断材料になります。</div></div>`;
     }
   }
   /* 日別の戦績（その日の全記録） */
@@ -1243,7 +1246,7 @@ function renderDashDaily(e, b){
           return `<div class="dm" style="margin-top:6px">${fmtDT(r.ts).split(" ")[1]}</div>${rows}${r.memo?`<div class="memo">${esc(r.memo)}</div>`:""}`;
         }).join("")}
       </div>`;
-    }).join("") + `<div class="note">緑の順位は、その枠に設定した報酬ラインに届いた記録です。</div></div>`;
+    }).join("") + `<div class="note">緑の順位は、その枠に設定した目標に届いた記録です（目標が未設定の枠は色分けしません）。</div></div>`;
   }
   html += `<button class="btn ghost" onclick="openRecordModal()">くわしく記録（メモ・ボーダー）</button>`;
   $("tab-dash").innerHTML = html;
@@ -1845,7 +1848,7 @@ function saveEvent(){
     const defBoards = data.type==="media"
       ? [{id:uid(), name:"メディアコイン", kind:"goal", goalPoints:null, dailyBonus:null, targetRank:null, borderRanks:[], records:[]},
          {id:uid(), name:"デイリー", kind:"daily", dailyResetHour:14, targetRank:100, borderRanks:[10,50,100,500],
-          slots:[{name:"枠1",zone:100},{name:"枠2",zone:100},{name:"枠3",zone:100}], records:[]}]
+          slots:[{name:"枠1",zone:null},{name:"枠2",zone:null},{name:"枠3",zone:null}], records:[]}]
       : [{id:uid(), name:"メイン", kind:"border", targetRank:null, borderRanks:[...DEFAULT_RANKS], records:[]}];
     const e = {id:uid(), ...data,
       boards: defBoards,
@@ -2062,7 +2065,7 @@ function quickBarHtml(e, b, c){
       const nm = sl.name;
       const p = prev ? slotDataOf(prev, i) : {rank:null,score:null};
       return `<div class="slotrow">
-        <span class="sname">${esc(nm)}${sl.zone!=null?`<br><span style="font-size:10px;color:var(--faint)">${sl.zone}位で報酬</span>`:""}</span>
+        <span class="sname">${esc(nm)}${sl.zone!=null?`<br><span style="font-size:10px;color:var(--faint)">目標 ${sl.zone}位</span>`:""}</span>
         <div class="sin"><label>順位</label>
           <input type="number" inputmode="numeric" id="q-rank${i}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
         <div class="sin"><label>スコア</label>
