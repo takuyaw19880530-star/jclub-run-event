@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260815.2";
+window.__BUILD__ = "20260815.4";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -273,6 +273,42 @@ textarea{min-height:64px;resize:vertical}
 .alert ul{margin-left:18px}
 .alert li{font-size:12px;line-height:1.8}
 .alert .n{font-size:10px;color:var(--faint);margin-top:7px;line-height:1.6}
+.quick{background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px 13px;margin-bottom:14px}
+.quick h3{font-size:11px;color:var(--sub);font-weight:700;letter-spacing:.08em;margin-bottom:9px;
+  display:flex;justify-content:space-between;align-items:center}
+.quick h3 span{color:var(--faint);font-weight:400;letter-spacing:0}
+.quick .row{display:flex;gap:8px;align-items:stretch}
+.quick .f{flex:1;min-width:0}
+.quick .f label{margin:0 0 4px;font-size:10px}
+.quick input{padding:11px 10px;font-size:17px;font-family:var(--mono);text-align:right}
+.quick .go{flex:0 0 auto;align-self:flex-end;background:var(--me);color:#fff;font-weight:700;
+  font-size:14px;border-radius:10px;padding:12px 16px;white-space:nowrap}
+.quick .go:active{opacity:.85}
+.quick .hint{font-size:10px;color:var(--faint);margin-top:8px;line-height:1.6}
+.slots{display:flex;flex-direction:column;gap:8px}
+.slotrow{display:flex;align-items:flex-end;gap:8px}
+.slotrow .sname{flex:1;min-width:0;font-size:12px;color:var(--sub);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:11px}
+.slotrow .sin{flex:0 0 86px}
+.slotrow .sin label{margin:0 0 4px;font-size:10px}
+.slotrow input{padding:10px;font-size:16px;font-family:var(--mono);text-align:right}
+.dayslot{display:flex;align-items:baseline;gap:10px;padding:4px 0;font-size:13px}
+.dayslot .sn{flex:1;min-width:0;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dayslot .rk{font-family:var(--mono);font-weight:700;min-width:58px;text-align:right}
+.dayslot .sc{font-family:var(--mono);color:var(--faint);min-width:74px;text-align:right;font-size:12px}
+.inzone{color:var(--safe)!important}
+.sumrow{display:flex;align-items:baseline;gap:10px;border-top:1px solid var(--line);padding:11px 2px;font-size:13px}
+.sumrow .sn{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sumrow .v{font-family:var(--mono);font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+.sumrow .lb{font-size:10px;color:var(--faint);margin-left:2px}
+.daylog{border-top:1px solid var(--line);padding:11px 2px}
+.daylog .dh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.daylog .dn{font-size:13px;font-weight:700}
+.daylog .dm{font-size:11px;color:var(--faint)}
+.daylog .di{font-size:13px;display:flex;gap:12px;flex-wrap:wrap;padding:3px 0}
+.daylog .di .n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.daylog .memo{font-size:12px;color:var(--sub);margin-top:4px;line-height:1.6}
 .fold-toggle{display:block;width:100%;text-align:left;font-size:13px;color:var(--border-c);
   padding:14px 0 2px;font-weight:600}
 .fold{display:none}
@@ -403,9 +439,13 @@ textarea{min-height:64px;resize:vertical}
     <div class="m-sub" id="m-rec-board"></div>
     <label>記録日時</label>
     <input type="datetime-local" id="r-ts">
-    <div class="grid2">
+    <div class="grid2" id="r-normal-fields">
       <div><label id="r-mypt-label">自分のポイント</label><input type="number" id="r-mypt" inputmode="numeric" placeholder="0"></div>
       <div><label>自分の順位</label><input type="number" id="r-myrank" inputmode="numeric" placeholder="未確認は空欄"></div>
+    </div>
+    <div id="r-slot-fields" class="hidden">
+      <label>今日の枠ごとの結果</label>
+      <div class="slots" id="r-slots"></div>
     </div>
     <label id="r-primary-label">ボーダーポイント</label>
     <div class="border-inputs" id="r-border-primary"></div>
@@ -450,10 +490,11 @@ textarea{min-height:64px;resize:vertical}
     <input id="b-name" placeholder="例：総合コイン / メインホール / EP周回">
     <label>ボードの種類</label>
     <select id="b-kind" onchange="onBoardKindChange()">
-      <option value="border">ランキング型（ボーダーを追いかける）</option>
-      <option value="goal">固定目標型（累計ptで交換ラインを目指す）</option>
-      <option value="daily">デイリー型（毎日リセットの順位メモ・予測なし）</option>
+      <option value="border">ランキング型 － ボーダーを追いかける（トロラン等）</option>
+      <option value="goal">目標型 － 決まったptを目指す（コイン交換など）</option>
+      <option value="daily">デイリー型 － 毎日リセットされる（マスメディア）</option>
     </select>
+    <div class="note" id="b-kind-note"></div>
     <div id="b-border-fields">
       <label>記録する順位（カンマ区切り）</label>
       <input id="b-ranks" placeholder="例：10,50,100,300,500,1000">
@@ -463,7 +504,13 @@ textarea{min-height:64px;resize:vertical}
     <div id="b-daily-fields" class="hidden">
       <label>日次リセット時刻（0〜23時）</label>
       <input type="number" id="b-reset" inputmode="numeric" placeholder="0" min="0" max="23">
-      <div class="note">ゲーム内でその日のランキングが切り替わる時刻です。この時刻を境に「1日」を区切って集計します。</div>
+      <label>走っているランキングの名前（最大3枠）</label>
+      <input id="b-slot1" placeholder="枠1　例：EP TOTAL">
+      <input id="b-slot2" placeholder="枠2　例：宝箱 1MATCH" style="margin-top:8px">
+      <input id="b-slot3" placeholder="枠3　例：シュート TOTAL" style="margin-top:8px">
+      <label>報酬がもらえる順位（枠共通の目安）</label>
+      <input type="number" id="b-zone" inputmode="numeric" placeholder="100">
+      <div class="note">ゲーム内でランキングが切り替わる時刻です。マスメディアは毎日13:30〜14:00に集計されるので <b>14</b> を設定してください。</div>
     </div>
     <div id="b-goal-fields" class="hidden">
       <label>目標ポイント</label>
@@ -805,8 +852,10 @@ function firstResource(b, key){
 function resourceCount(b, key){
   return sortedRecords(b).filter(r=>numOrNull(r[key])!=null).length;
 }
-function recommendIntervalH(rh){
-  /* 残り時間に応じた推奨記録間隔（終盤ほど密に） */
+function recommendIntervalH(rh, b){
+  /* 残り時間に応じた推奨記録間隔（終盤ほど密に）。ボード種別で緩急を変える */
+  if(b && b.kind==="goal") return 24;
+  if(b && b.kind==="daily") return 24;
   if(rh==null) return 12;
   if(rh<=1) return 1/3;
   if(rh<=6) return 1;
@@ -821,6 +870,15 @@ function hoursToText(h){
     return mm ? `${hh}時間${mm}分` : `${hh}時間`;
   }
   return `${Math.floor(h/24)}日${Math.floor(h%24)}時間`;
+}
+function slotsOf(b){ return (b.slots && b.slots.length) ? b.slots : ["枠1"]; }
+function rewardZoneOf(b){ return numOrNull(b.rewardZone) ?? numOrNull(b.targetRank) ?? 100; }
+function slotDataOf(r, i){
+  /* 記録から枠iのデータを取り出す。枠0は旧形式(myRank/myPoints)にフォールバック */
+  const sd = (r.slotData||[])[i];
+  if(sd && (numOrNull(sd.rank)!=null || numOrNull(sd.score)!=null)) return {rank:numOrNull(sd.rank), score:numOrNull(sd.score)};
+  if(i===0) return {rank:numOrNull(r.myRank), score:numOrNull(r.myPoints)};
+  return {rank:null, score:null};
 }
 function dailyAnchor(e, b){
   /* デイリー集計の起点：イベント開始日の日次リセット時刻 */
@@ -965,7 +1023,7 @@ function renderHome(){
     const st = c.status!=="none" ? `判定 <b>${STATUS_TEXT[c.status]}</b>` : "";
     const allTs = e.boards.flatMap(bd=>(bd.records||[]).map(r=>r.ts));
     const sinceH = allTs.length ? hoursBetween(Math.max(...allTs), Date.now()) : null;
-    const overdue = e.status==="active" && sinceH!=null && sinceH > recommendIntervalH(remainHours(e));
+    const overdue = e.status==="active" && sinceH!=null && sinceH > recommendIntervalH(remainHours(e), e.boards[0]);
     const recBadge = (e.status==="active" && sinceH!=null)
       ? `<span style="color:${overdue?"var(--warn)":"var(--faint)"}">${overdue?"⏱ ":""}記録 ${hoursToText(sinceH)}前</span>` : "";
     return `<button class="ev-card" onclick="showEvent('${e.id}')">
@@ -1067,7 +1125,7 @@ function renderDashDaily(e, b){
   }
   const stCls = {safe:"s-safe",warn:"s-warn",danger:"s-danger",none:"s-none"}[status];
   const pn = e.pointName || "Pt";
-  let html = `<div class="paceboard">
+  let html = quickBarHtml(e, b, null) + `<div class="paceboard">
     <div class="pb-status"><span class="st ${stCls}">本日 ${STATUS_TEXT[status]}</span></div>
     <div class="pb-grid">
       <div class="pb-side me"><div class="who">自分（本日）</div><div class="pt">${fmt(myLast)}</div>
@@ -1084,23 +1142,68 @@ function renderDashDaily(e, b){
       <div class="stat"><div class="k">必要ポイント</div><div class="v">${fmt(need)}</div></div>
       <div class="stat"><div class="k">必要時速</div><div class="v">${fmt(needSpd)}<span class="u">/h</span></div></div>
     </div>
-    <div class="note">デイリー型は毎日リセットされるため、予測は本日の記録だけで行います（本日「自分」「ボーダー」各2回以上の記録で動きます）。順位維持で毎日もらえるコインは、総合コインボードの「デイリー報酬の見込み」に入れてください。</div>
+    <div class="note">予測は本日の記録だけで計算します（本日2回以上の記録で動きます）。<b>TOTAL（累計）系のランキング向け</b>で、1MATCH（1試合ハイスコア）系は伸び方が跳ねるため予測は目安になりません。順位のメモとしてお使いください。</div>
   </div>`;
-  /* 日別サマリー */
+  /* 枠別サマリー（次回の枠選びの材料） */
+  const zone = rewardZoneOf(b);
+  {
+    const names = slotsOf(b);
+    const stats = names.map((nm,i)=>{
+      /* 各日の最終記録から、その枠の順位を集計 */
+      const perDay = {};
+      recs.forEach(r=>{
+        const d = slotDataOf(r, i);
+        if(d.rank==null) return;
+        const k = dayKeyOf(e,b,r.ts);
+        perDay[k] = d; /* 後の記録で上書き＝その日の最終 */
+      });
+      const days = Object.keys(perDay).map(Number).sort((a,x)=>a-x);
+      if(!days.length) return null;
+      const ranks = days.map(k=>perDay[k].rank);
+      const scores = days.map(k=>perDay[k].score).filter(v=>v!=null);
+      const inZone = ranks.filter(r=>r<=zone).length;
+      return {name:nm, n:days.length, best:Math.min(...ranks),
+        avg: ranks.reduce((p,x)=>p+x,0)/ranks.length,
+        inZone, rate: inZone/days.length,
+        bestScore: scores.length ? Math.max(...scores) : null};
+    }).filter(Boolean);
+    if(stats.length){
+      html += `<div class="card"><h3>枠別サマリー（次回の枠選び用）</h3>` +
+        stats.map(s=>`<div class="sumrow">
+          <span class="sn">${esc(s.name)}</span>
+          <span class="v" style="color:${s.rate>=0.6?"var(--safe)":s.rate>0?"var(--warn)":"var(--danger)"}">${s.inZone}/${s.n}<span class="lb">報酬圏</span></span>
+          <span class="v">${fmt(s.best)}<span class="lb">最高</span></span>
+          <span class="v">${fmt(s.avg)}<span class="lb">平均</span></span>
+        </div>`).join("") +
+        `<div class="note">${zone}位以内に入れた日数／記録した日数です。次回のマスメディアで、どの枠を選ぶかの判断材料になります。</div></div>`;
+    }
+  }
+  /* 日別の戦績（その日の全記録） */
   const byDay = {};
   recs.forEach(r=>{ const k=dayKeyOf(e,b,r.ts); (byDay[k]=byDay[k]||[]).push(r); });
   const keys = Object.keys(byDay).map(Number).sort((a,x)=>x-a);
   if(keys.length){
-    html += `<div class="card"><h3>日別サマリー（各日の最終記録）</h3>` + keys.map(k=>{
-      const rs = byDay[k]; const last = rs[rs.length-1];
-      return `<div style="display:flex;gap:14px;align-items:baseline;border-top:1px solid var(--line);padding:10px 2px;font-size:14px">
-        <span style="color:${k===todayKey?"var(--border-c)":"var(--faint)"};font-weight:700;min-width:78px">Day ${k+1}${k===todayKey?"（今日）":""}</span>
-        <span class="num">${last.myRank?fmt(last.myRank)+"位":"—"}</span>
-        <span class="num" style="color:var(--me)">${fmt(numOrNull(last.myPoints))}</span>
-        <span style="color:var(--faint);font-size:11px">${rs.length}件</span></div>`;
-    }).join("") + `</div>`;
+    html += `<div class="card"><h3>日別の戦績</h3>` + keys.map(k=>{
+      const rs = byDay[k];
+      return `<div class="daylog">
+        <div class="dh"><span class="dn" style="color:${k===todayKey?"var(--border-c)":"var(--text)"}">Day ${k+1}${k===todayKey?"（今日）":""}</span>
+          <span class="dm">${rs.length}件</span></div>
+        ${rs.map(r=>{
+          const names = (r.slotData && r.slotData.length) ? r.slotData.map(s=>s.name) : slotsOf(b);
+          const rows = names.map((nm,i)=>{
+            const d = slotDataOf(r, i);
+            if(d.rank==null && d.score==null) return "";
+            const inZone = d.rank!=null && d.rank<=zone;
+            return `<div class="dayslot"><span class="sn">${esc(nm||("枠"+(i+1)))}</span>
+              <span class="rk ${inZone?"inzone":""}">${d.rank!=null?fmt(d.rank)+"位":"—"}</span>
+              <span class="sc">${d.score!=null?fmt(d.score):"—"}</span></div>`;
+          }).join("");
+          return `<div class="dm" style="margin-top:6px">${fmtDT(r.ts).split(" ")[1]}</div>${rows}${r.memo?`<div class="memo">${esc(r.memo)}</div>`:""}`;
+        }).join("")}
+      </div>`;
+    }).join("") + `<div class="note">緑の順位は報酬圏（${zone}位以内）です。</div></div>`;
   }
-  html += `<button class="btn primary" onclick="openRecordModal()">いまの状況を記録する</button>`;
+  html += `<button class="btn ghost" onclick="openRecordModal()">くわしく記録（メモ・ボーダー）</button>`;
   $("tab-dash").innerHTML = html;
 }
 function renderDash(){
@@ -1115,7 +1218,7 @@ function renderDash(){
   const diff = (c.myLast!=null && c.bdLast!=null) ? c.myLast-c.bdLast : null;
   const boardNote = e.boards.length>1 ? `「${esc(b.name)}」ボード` : "";
 
-  let html = `
+  let html = quickBarHtml(e, b, c) + `
   <div class="paceboard">
     <div class="pb-status"><span class="st ${stCls}">${STATUS_TEXT[c.status]}</span></div>
     <div class="pb-grid">
@@ -1172,7 +1275,7 @@ function renderDash(){
   }
   /* --- 記録リマインド --- */
   if(e.status==="active" && c.rh!=null && c.rh>0 && sinceH!=null){
-    const iv = recommendIntervalH(c.rh);
+    const iv = recommendIntervalH(c.rh, b);
     if(sinceH > iv){
       html += `<div class="remind">⏱ 最後の記録から <b>${hoursToText(sinceH)}</b> 経過しています。終了まで ${hoursToText(c.rh)} のため、<b>${hoursToText(iv)}おき</b>の記録を推奨します。${c.rh<=24?"終盤はボーダーが加速するため、記録間隔が予測精度に直結します。":""}</div>`;
     }
@@ -1378,7 +1481,7 @@ function renderDash(){
       ${e.memo?`<div style="font-size:13px;color:var(--sub);white-space:pre-wrap">${esc(e.memo)}</div>`:""}
     </div>`;
   }
-  html += `<button class="btn primary" onclick="openRecordModal()">いまの状況を記録する</button>`;
+  html += `<button class="btn ghost" onclick="openRecordModal()">くわしく記録（資源・メモ・他の順位）</button>`;
   $("tab-dash").innerHTML = html;
 }
 function setCompareTarget(rank){
@@ -1698,8 +1801,9 @@ function saveEvent(){
     Object.assign(e, data);
   }else{
     const defBoards = data.type==="media"
-      ? [{id:uid(), name:"総合コイン", kind:"goal", goalPoints:null, dailyBonus:null, targetRank:null, borderRanks:[], records:[]},
-         {id:uid(), name:"メインホール", kind:"border", targetRank:null, borderRanks:[...DEFAULT_RANKS], records:[]}]
+      ? [{id:uid(), name:"メディアコイン", kind:"goal", goalPoints:null, dailyBonus:null, targetRank:null, borderRanks:[], records:[]},
+         {id:uid(), name:"デイリー", kind:"daily", dailyResetHour:14, targetRank:100, borderRanks:[10,50,100,500],
+          slots:["枠1","枠2","枠3"], rewardZone:100, records:[]}]
       : [{id:uid(), name:"メイン", kind:"border", targetRank:null, borderRanks:[...DEFAULT_RANKS], records:[]}];
     const e = {id:uid(), ...data,
       boards: defBoards,
@@ -1814,6 +1918,7 @@ function duplicateEvent(){
       id:uid(), name:b.name, kind:b.kind, targetRank:b.targetRank,
       borderRanks:[...(b.borderRanks||[])],
       goalPoints:b.goalPoints, dailyBonus:b.dailyBonus,
+      dailyResetHour:b.dailyResetHour, slots:b.slots?[...b.slots]:undefined, rewardZone:b.rewardZone,
       lap: b.lap ? {...b.lap} : undefined,
       records:[],
     })),
@@ -1827,11 +1932,17 @@ function duplicateEvent(){
 }
 
 /* ---------- ボード作成/編集 ---------- */
+const KIND_NOTE = {
+  border:"最終順位を競うランキング向け。ボーダーの推移から終了時を予測し、必要pt・撤退判定まで計算します。",
+  goal:"「◯◯ptためて交換」のような固定ライン向け。目標から、毎日もらえる分を差し引いた必要量を計算します。",
+  daily:"毎日リセットされるランキング向け。その日の記録だけで判定し、日ごとの戦績が残ります。",
+};
 function onBoardKindChange(){
   const k = $("b-kind").value;
   $("b-border-fields").classList.toggle("hidden", k==="goal");
   $("b-goal-fields").classList.toggle("hidden", k!=="goal");
   $("b-daily-fields").classList.toggle("hidden", k!=="daily");
+  $("b-kind-note").textContent = KIND_NOTE[k] || "";
 }
 function openBoardModal(mode){
   state.editBoardMode = mode; /* 'new' or boardId */
@@ -1846,6 +1957,9 @@ function openBoardModal(mode){
   $("b-goal").value = b && b.goalPoints!=null ? b.goalPoints : "";
   $("b-daily").value = b && b.dailyBonus!=null ? b.dailyBonus : "";
   $("b-reset").value = b && b.dailyResetHour!=null ? b.dailyResetHour : "0";
+  const sl = (b && b.slots) || [];
+  $("b-slot1").value = sl[0]||""; $("b-slot2").value = sl[1]||""; $("b-slot3").value = sl[2]||"";
+  $("b-zone").value = b && b.rewardZone!=null ? b.rewardZone : "";
   onBoardKindChange();
   closeModal("m-rec");
   openModal("m-board");
@@ -1867,12 +1981,14 @@ function saveBoard(){
   if(kind==="goal" && goalPoints==null){ alert("固定目標型は目標ポイントを入力してください。"); return; }
   let resetH = numOrNull($("b-reset").value);
   if(resetH!=null) resetH = Math.min(23, Math.max(0, Math.floor(resetH)));
+  const slots = [$("b-slot1").value.trim(), $("b-slot2").value.trim(), $("b-slot3").value.trim()].filter(Boolean);
+  const rewardZone = numOrNull($("b-zone").value);
   if(state.editBoardMode==="new"){
-    const b = {id:uid(), name, kind, targetRank:target, borderRanks:ranks, goalPoints, dailyBonus, dailyResetHour:resetH, records:[]};
+    const b = {id:uid(), name, kind, targetRank:target, borderRanks:ranks, goalPoints, dailyBonus, dailyResetHour:resetH, slots, rewardZone, records:[]};
     e.boards.push(b); state.boardId=b.id;
   }else{
     const b = e.boards.find(x=>x.id===state.editBoardMode);
-    if(b){ b.name=name; b.kind=kind; b.borderRanks=ranks; b.targetRank=target; b.goalPoints=goalPoints; b.dailyBonus=dailyBonus; b.dailyResetHour=resetH; }
+    if(b){ b.name=name; b.kind=kind; b.borderRanks=ranks; b.targetRank=target; b.goalPoints=goalPoints; b.dailyBonus=dailyBonus; b.dailyResetHour=resetH; b.slots=slots; b.rewardZone=rewardZone; }
   }
   saveDB(); closeModal("m-board"); renderEvent();
 }
@@ -1884,6 +2000,93 @@ function deleteBoard(){
   e.boards = e.boards.filter(x=>x.id!==state.editBoardMode);
   state.boardId = e.boards[0].id;
   saveDB(); closeModal("m-board"); renderEvent();
+}
+
+/* ---------- クイック記録 ---------- */
+function quickBarHtml(e, b, c){
+  const pn = e.pointName || "pt";
+  const isGoal = b.kind==="goal", isDaily = b.kind==="daily";
+  const tRank = targetRankOf(e, b);
+  const prev = sortedRecords(b).slice(-1)[0];
+  const phMy = prev && prev.myPoints!=null ? `前回 ${fmt(prev.myPoints)}` : "0";
+  let second = "";
+  if(isDaily){
+    const slots = slotsOf(b);
+    const rows = slots.map((nm,i)=>{
+      const p = prev ? slotDataOf(prev, i) : {rank:null,score:null};
+      return `<div class="slotrow">
+        <span class="sname">${esc(nm)}</span>
+        <div class="sin"><label>順位</label>
+          <input type="number" inputmode="numeric" id="q-rank${i}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
+        <div class="sin"><label>スコア</label>
+          <input type="number" inputmode="numeric" id="q-score${i}" placeholder="${p.score!=null?fmt(p.score):"—"}"></div>
+      </div>`;
+    }).join("");
+    return `<div class="quick">
+      <h3>今日の3枠を1タップで記録<span>日時は自動</span></h3>
+      <div class="slots">${rows}</div>
+      <button class="go" style="width:100%;margin-top:11px;text-align:center" onclick="quickSave()">記録</button>
+      <div class="hint">走る項目を変えたら、上の「${esc(b.name)} ✎」から枠名を編集できます。</div>
+    </div>`;
+  }else if(!isGoal){
+    const s = tRank!=null ? borderSeries(b, tRank) : [];
+    second = `<div class="f"><label>${tRank??"—"}位ボーダー</label>
+      <input type="number" inputmode="numeric" id="q-bd" placeholder="${s.length?`前回 ${fmt(s[s.length-1].v)}`:"—"}"></div>`;
+  }
+  const label = isGoal ? "いまの累計を1タップで記録"
+              : isDaily ? "いまの順位を1タップで記録" : "いまの状況を1タップで記録";
+  return `<div class="quick">
+    <h3>${label}<span>日時は自動</span></h3>
+    <div class="row">
+      <div class="f"><label>自分の${esc(pn)}</label>
+        <input type="number" inputmode="numeric" id="q-my" placeholder="${phMy}"></div>
+      ${second}
+      <button class="go" onclick="quickSave()">記録</button>
+    </div>
+    <div class="hint">資源・メモ・他の順位も入れたいときは、下の「くわしく記録」から。</div>
+  </div>`;
+}
+function quickSave(){
+  const e=ev(), b=board(); if(!e||!b) return;
+  if(b.kind==="daily"){
+    const slots = slotsOf(b);
+    const slotData = slots.map((nm,i)=>({
+      name:nm,
+      rank: numOrNull(($("q-rank"+i)||{}).value),
+      score: numOrNull(($("q-score"+i)||{}).value),
+    }));
+    if(!slotData.some(s=>s.rank!=null || s.score!=null)){
+      alert("数字を入力してから「記録」を押してください。"); return;
+    }
+    const rec = {id:uid(), ts:Date.now(), slotData,
+      myPoints: slotData[0].score, myRank: slotData[0].rank, borders:{}, memo:""};
+    b.records.push(rec);
+    saveDB(); renderEvent(); toast("記録しました");
+    return;
+  }
+  const my = numOrNull(($("q-my")||{}).value);
+  const bd = numOrNull(($("q-bd")||{}).value);
+  if(my==null && bd==null){ alert("数字を入力してから「記録」を押してください。"); return; }
+  const rec = {id:uid(), ts:Date.now(), myPoints:my, myRank:null, borders:{}, memo:""};
+  const tRank = targetRankOf(e, b);
+  if(bd!=null && tRank!=null) rec.borders[tRank] = bd;
+  b.records.push(rec);
+  saveDB(); renderEvent(); toast("記録しました");
+}
+function toast(msg){
+  let t = $("toast");
+  if(!t || !t.parentElementSet){
+    t = $("toast") || document.createElement("div");
+    t.id = "toast";
+    t.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:calc(94px + env(safe-area-inset-bottom));"+
+      "background:var(--panel2);border:1px solid var(--line);color:var(--text);font-size:13px;font-weight:600;"+
+      "padding:10px 18px;border-radius:99px;z-index:60;box-shadow:0 6px 20px rgba(0,0,0,.5);opacity:0;transition:opacity .18s";
+    if(!t.parentElementSet){ document.body.appendChild(t); t.parentElementSet = true; }
+  }
+  t.textContent = msg;
+  t.style.opacity = "1";
+  clearTimeout(window.__toastT);
+  window.__toastT = setTimeout(()=>{ t.style.opacity="0"; }, 1600);
 }
 
 /* ---------- 折りたたみ ---------- */
@@ -1955,6 +2158,25 @@ function openRecordModal(recId){
   setFold("r-borders-fold","r-borders-toggle", othersHasVal, `他の順位のボーダーも記録（${others.length}件）`);
   const resHasVal = !!(r && (["gpHeal","gpHealHalf","bpHeal","bpHealMini","vamo"].some(k=>numOrNull(r[k])!=null) || (r.tokko!=null && r.tokko!=="")));
   setFold("r-res-fold","r-res-toggle", resHasVal, "資源も記録（回復薬・バモ・特効）");
+  /* デイリー型は枠入力に切替 */
+  const isDaily = b.kind==="daily";
+  $("r-normal-fields").classList.toggle("hidden", isDaily);
+  $("r-slot-fields").classList.toggle("hidden", !isDaily);
+  if(isDaily){
+    const names = (r && r.slotData && r.slotData.length) ? r.slotData.map(s=>s.name) : slotsOf(b);
+    const prevRec2 = prevRecs.length ? prevRecs[prevRecs.length-1] : null;
+    $("r-slots").innerHTML = names.map((nm,i)=>{
+      const d = r ? slotDataOf(r, i) : {rank:null,score:null};
+      const p = prevRec2 ? slotDataOf(prevRec2, i) : {rank:null,score:null};
+      return `<div class="slotrow">
+        <span class="sname">${esc(nm||("枠"+(i+1)))}</span>
+        <div class="sin"><label>順位</label>
+          <input type="number" inputmode="numeric" data-slot="${i}" data-f="rank" value="${d.rank??""}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
+        <div class="sin"><label>スコア</label>
+          <input type="number" inputmode="numeric" data-slot="${i}" data-f="score" value="${d.score??""}" placeholder="${p.score!=null?fmt(p.score):"—"}"></div>
+      </div>`;
+    }).join("");
+  }
   /* 固定目標型はボーダー入力欄を非表示 */
   const isGoal = b.kind==="goal";
   ["r-primary-label","r-border-primary","r-borders-toggle","r-borders-fold"].forEach(id=>
@@ -2001,10 +2223,20 @@ function saveRecord(){
     const v = inp.value.trim();
     if(v!=="") borders[inp.dataset.rk] = Number(v);
   });
+  let slotData = null;
+  if(b.kind==="daily"){
+    const names = slotsOf(b);
+    slotData = names.map((nm,i)=>({name:nm, rank:null, score:null}));
+    document.querySelectorAll("#r-slots input[data-slot]").forEach(inp=>{
+      const i = Number(inp.dataset.slot), f = inp.dataset.f, v = numOrNull(inp.value);
+      if(slotData[i]) slotData[i][f] = v;
+    });
+  }
   const data = {
     ts,
-    myPoints: numOrNull($("r-mypt").value),
-    myRank: numOrNull($("r-myrank").value),
+    slotData,
+    myPoints: slotData ? slotData[0].score : numOrNull($("r-mypt").value),
+    myRank: slotData ? slotData[0].rank : numOrNull($("r-myrank").value),
     borders,
     vamo:numOrNull($("r-vamo").value),
     gpHeal:numOrNull($("r-gpheal").value), gpHealHalf:numOrNull($("r-gphealhalf").value),
@@ -2012,8 +2244,9 @@ function saveRecord(){
     tokko: $("r-tokko").value.trim(),
     memo: $("r-memo").value.trim(),
   };
-  if(data.myPoints==null && !Object.keys(borders).length){
-    alert("自分のポイントかボーダーのどちらかは入力してください。"); return;
+  const hasSlot = slotData && slotData.some(s=>s.rank!=null || s.score!=null);
+  if(data.myPoints==null && data.myRank==null && !Object.keys(borders).length && !hasSlot){
+    alert("順位・ポイント・ボーダーのいずれかは入力してください。"); return;
   }
   if(state.editRecId){
     const r = b.records.find(x=>x.id===state.editRecId);
