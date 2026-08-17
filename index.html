@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260817.3";
+window.__BUILD__ = "20260817.4";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -290,6 +290,11 @@ textarea{min-height:64px;resize:vertical}
 .slotrow{display:flex;align-items:flex-end;gap:8px}
 .slotrow .f{flex:1;min-width:0}
 .slotrow select{padding:10px;font-size:13px}
+.otherin{margin-top:6px;font-size:14px}
+select{appearance:none;-webkit-appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--sub) 50%),linear-gradient(135deg,var(--sub) 50%,transparent 50%);
+  background-position:calc(100% - 16px) 55%,calc(100% - 11px) 55%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
 .slotrow .sub{flex:0 0 96px}
 .slotrow .sub input{font-family:inherit;text-align:left;font-size:13px}
 .dayslot .subl{font-size:11px;color:var(--faint);margin-left:2px}
@@ -513,15 +518,15 @@ textarea{min-height:64px;resize:vertical}
       <label>走っているランキングと目標順位</label>
       <div class="slots">
         <div class="slotrow">
-          <div class="f"><input id="b-slot1" list="dl-media" placeholder="枠1　例：マスメディア メインホール"></div>
+          <div class="f" id="b-slot1-wrap"></div>
           <div class="sin"><input type="number" id="b-zone1" inputmode="numeric" placeholder="目標順位"></div>
         </div>
         <div class="slotrow">
-          <div class="f"><input id="b-slot2" list="dl-media" placeholder="枠2　例：JクラSPORTS"></div>
+          <div class="f" id="b-slot2-wrap"></div>
           <div class="sin"><input type="number" id="b-zone2" inputmode="numeric" placeholder="目標順位"></div>
         </div>
         <div class="slotrow">
-          <div class="f"><input id="b-slot3" list="dl-media" placeholder="枠3　例：SOCCER WISDOM"></div>
+          <div class="f" id="b-slot3-wrap"></div>
           <div class="sin"><input type="number" id="b-zone3" inputmode="numeric" placeholder="目標順位"></div>
         </div>
       </div>
@@ -542,9 +547,6 @@ textarea{min-height:64px;resize:vertical}
     </div>
   </div>
 </div>
-
-<datalist id="dl-media"></datalist>
-<datalist id="dl-sub"></datalist>
 
 <!-- ============ モーダル：報酬追加 ============ -->
 <div class="modal-bg" id="m-rw">
@@ -914,11 +916,32 @@ function usedSubNames(b){
   (b.records||[]).forEach(r=>(r.slotData||[]).forEach(x=>{ if(x.sub) s.add(x.sub); }));
   return [...s];
 }
-function fillDatalists(b){
-  const media = [...new Set([...MEDIA_LIST, ...slotsOf(b).map(s=>s.name).filter(Boolean),
+function mediaOptions(b){
+  return [...new Set([...MEDIA_LIST, ...slotsOf(b).map(s=>s.name).filter(Boolean),
     ...(b.records||[]).flatMap(r=>(r.slotData||[]).map(x=>x.name)).filter(Boolean)])];
-  $("dl-media").innerHTML = media.map(m=>`<option value="${esc(m)}">`).join("");
-  $("dl-sub").innerHTML = usedSubNames(b).map(m=>`<option value="${esc(m)}">`).join("");
+}
+function fillDatalists(b){ /* 互換のため残置（datalistは廃止） */ }
+function selectHtml(opts, cur, attrs, onchangeId){
+  /* 選択式＋「その他（自由入力）」。curが候補にない場合は「その他」を選択状態にする */
+  const isOther = cur && !opts.includes(cur);
+  return `<select ${attrs} onchange="onPickChange(this,'${onchangeId}')">
+    <option value="">—</option>
+    ${opts.map(o=>`<option value="${esc(o)}" ${o===cur?"selected":""}>${esc(o)}</option>`).join("")}
+    <option value="__other__" ${isOther?"selected":""}>その他（自由入力）</option>
+  </select>
+  <input type="text" id="${onchangeId}" class="otherin ${isOther?"":"hidden"}" value="${isOther?esc(cur):""}" placeholder="自由入力">`;
+}
+function onPickChange(sel, inputId){
+  const inp = $(inputId);
+  if(!inp) return;
+  const other = sel.value === "__other__";
+  inp.classList.toggle("hidden", !other);
+  if(other) { try{ inp.focus(); }catch(e){} } else { inp.value = ""; }
+}
+function pickedValue(sel, inputId){
+  if(!sel) return "";
+  if(sel.value === "__other__") return (($(inputId)||{}).value||"").trim();
+  return sel.value;
 }
 function slotsOf(b){
   const s = normSlots(b);
@@ -2022,7 +2045,6 @@ function onBoardKindChange(){
   $("b-kind-note").textContent = KIND_NOTE[k] || "";
 }
 function openBoardModal(mode){
-  if(ev()) fillDatalists(board() || ev().boards[0]);
   state.editBoardMode = mode; /* 'new' or boardId */
   const isNew = mode==="new";
   const b = isNew ? null : ev().boards.find(x=>x.id===mode);
@@ -2036,8 +2058,10 @@ function openBoardModal(mode){
   $("b-daily").value = b && b.dailyBonus!=null ? b.dailyBonus : "";
   $("b-reset").value = b && b.dailyResetHour!=null ? b.dailyResetHour : "0";
   const sl = normSlots(b);
+  const opts = mediaOptions(b || {});
   [0,1,2].forEach(i=>{
-    $("b-slot"+(i+1)).value = sl[i] ? sl[i].name : "";
+    const cur = sl[i] ? sl[i].name : "";
+    $("b-slot"+(i+1)+"-wrap").innerHTML = selectHtml(opts, cur, `id="b-slot${i+1}sel"`, "b-slot"+(i+1)+"oth");
     $("b-zone"+(i+1)).value = sl[i] && sl[i].zone!=null ? sl[i].zone : "";
   });
   onBoardKindChange();
@@ -2062,7 +2086,7 @@ function saveBoard(){
   let resetH = numOrNull($("b-reset").value);
   if(resetH!=null) resetH = Math.min(23, Math.max(0, Math.floor(resetH)));
   const slots = [0,1,2].map(i=>({
-    name: $("b-slot"+(i+1)).value.trim(),
+    name: pickedValue($("b-slot"+(i+1)+"sel"), "b-slot"+(i+1)+"oth"),
     zone: numOrNull($("b-zone"+(i+1)).value),
   })).filter(s=>s.name);
   if(state.editBoardMode==="new"){
@@ -2094,13 +2118,14 @@ function quickBarHtml(e, b, c){
   let second = "";
   if(isDaily){
     const slots = slotsOf(b);
+    const subOpts = usedSubNames(b);
     const rows = slots.map((sl,i)=>{
       const nm = sl.name;
       const p = prev ? slotDataOf(prev, i) : {rank:null,score:null};
       return `<div class="slotrow">
         <span class="sname">${esc(nm)}${sl.zone!=null?`<br><span style="font-size:10px;color:var(--faint)">目標 ${sl.zone}位</span>`:""}</span>
         <div class="sub"><label>内容</label>
-          <input type="text" list="dl-sub" id="q-sub${i}" placeholder="${p.sub?esc(p.sub):"任意"}"></div>
+          ${selectHtml(subOpts, "", `id="q-sub${i}sel"`, "q-sub"+i+"oth")}</div>
         <div class="sin"><label>順位</label>
           <input type="number" inputmode="numeric" id="q-rank${i}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
         <div class="sin"><label>スコア</label>
@@ -2137,7 +2162,7 @@ function quickSave(){
     const slots = slotsOf(b);
     const slotData = slots.map((sl,i)=>({
       name:sl.name,
-      sub: (($("q-sub"+i)||{}).value||"").trim(),
+      sub: pickedValue($("q-sub"+i+"sel"), "q-sub"+i+"oth"),
       rank: numOrNull(($("q-rank"+i)||{}).value),
       score: numOrNull(($("q-score"+i)||{}).value),
     }));
@@ -2257,17 +2282,16 @@ function openRecordModal(recId){
       ...MEDIA_LIST,
     ].filter(Boolean))];
     const prevRec2 = prevRecs.length ? prevRecs[prevRecs.length-1] : null;
+    const subOpts2 = usedSubNames(b);
     $("r-slots").innerHTML = names.map((nm,i)=>{
       const d = r ? slotDataOf(r, i) : {rank:null,score:null};
       const p = prevRec2 ? slotDataOf(prevRec2, i) : {rank:null,score:null};
       const opts = [...new Set([...allSlotNames, nm].filter(Boolean))];
       return `<div class="slotrow">
         <div class="f"><label>ランキング（枠）</label>
-          <select data-slot="${i}" data-f="name">
-            ${opts.map(o=>`<option value="${esc(o)}" ${o===nm?"selected":""}>${esc(o)}</option>`).join("")}
-          </select></div>
+          ${selectHtml(opts, nm, `data-slot="${i}" data-f="name" id="r-name${i}sel"`, "r-name"+i+"oth")}</div>
         <div class="sub"><label>内容</label>
-          <input type="text" list="dl-sub" data-slot="${i}" data-f="sub" value="${esc(d.sub||"")}" placeholder="${p.sub?esc(p.sub):"任意"}"></div>
+          ${selectHtml(subOpts2, d.sub||"", `data-slot="${i}" data-f="sub" id="r-sub${i}sel"`, "r-sub"+i+"oth")}</div>
         <div class="sin"><label>順位</label>
           <input type="number" inputmode="numeric" data-slot="${i}" data-f="rank" value="${d.rank??""}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
         <div class="sin"><label>スコア</label>
@@ -2328,9 +2352,14 @@ function saveRecord(){
     document.querySelectorAll("#r-slots input[data-slot], #r-slots select[data-slot]").forEach(inp=>{
       const i = Number(inp.dataset.slot), f = inp.dataset.f;
       if(!slotData[i]) return;
-      if(f==="name") slotData[i].name = (inp.value||"").trim() || slotData[i].name;
-      else if(f==="sub") slotData[i].sub = (inp.value||"").trim();
-      else slotData[i][f] = numOrNull(inp.value);
+      if(f==="name"){
+        const v = pickedValue(inp, "r-name"+i+"oth");
+        if(v) slotData[i].name = v;
+      }else if(f==="sub"){
+        slotData[i].sub = pickedValue(inp, "r-sub"+i+"oth");
+      }else{
+        slotData[i][f] = numOrNull(inp.value);
+      }
     });
   }
   const data = {
