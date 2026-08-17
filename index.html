@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260817.5";
+window.__BUILD__ = "20260817.6";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -535,7 +535,7 @@ select{appearance:none;-webkit-appearance:none;
           <input type="number" id="b-zone3" inputmode="numeric" placeholder="空欄可">
         </div>
       </div>
-      <div class="note">枠にはメディア名（マスメディア メインホール、JクラSPORTS など）を入れると、日替わりの種目は記録時の「内容」で書き分けられます。右側は自分が狙う順位（任意・空欄可）。</div>
+      <div class="note">枠にはメディア名（メインホール、JクラSPORTS など）を入れると、日替わりの種目は記録時の「内容」で書き分けられます。右側は自分が狙う順位（任意・空欄可）。</div>
       <div class="note">ゲーム内でランキングが切り替わる時刻です。マスメディアは毎日13:30〜14:00に集計されるので <b>14</b> を設定してください。</div>
     </div>
     <div id="b-goal-fields" class="hidden">
@@ -634,7 +634,7 @@ const EVENT_TYPES = [
 const DEFAULT_RANKS = [10,50,100,300,500,1000];
 /* マスメディアのメディア一覧（プルダウン候補。ここにないものは自由入力できる） */
 const MEDIA_LIST = [
-  "マスメディア メインホール",
+  "メインホール",
   "ニュービーFOOTBALL",
   "SOCCER ZONE",
   "Football General",
@@ -1908,7 +1908,7 @@ function saveEvent(){
     const defBoards = data.type==="media"
       ? [{id:uid(), name:"メディアコイン", kind:"goal", goalPoints:null, dailyBonus:null, targetRank:null, borderRanks:[], records:[]},
          {id:uid(), name:"デイリー", kind:"daily", dailyResetHour:14, targetRank:100, borderRanks:[10,50,100,500],
-          slots:[{name:"マスメディア メインホール",zone:null},{name:"枠2",zone:null},{name:"枠3",zone:null}], records:[]}]
+          slots:[{name:"メインホール",zone:null},{name:"枠2",zone:null},{name:"枠3",zone:null}], records:[]}]
       : [{id:uid(), name:"メイン", kind:"border", targetRank:null, borderRanks:[...DEFAULT_RANKS], records:[]}];
     const e = {id:uid(), ...data,
       boards: defBoards,
