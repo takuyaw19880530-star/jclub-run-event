@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260817.4";
+window.__BUILD__ = "20260817.5";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -286,23 +286,22 @@ textarea{min-height:64px;resize:vertical}
   font-size:14px;border-radius:10px;padding:12px 16px;white-space:nowrap}
 .quick .go:active{opacity:.85}
 .quick .hint{font-size:10px;color:var(--faint);margin-top:8px;line-height:1.6}
-.slots{display:flex;flex-direction:column;gap:8px}
-.slotrow{display:flex;align-items:flex-end;gap:8px}
-.slotrow .f{flex:1;min-width:0}
-.slotrow select{padding:10px;font-size:13px}
-.otherin{margin-top:6px;font-size:14px}
 select{appearance:none;-webkit-appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--sub) 50%),linear-gradient(135deg,var(--sub) 50%,transparent 50%);
   background-position:calc(100% - 16px) 55%,calc(100% - 11px) 55%;
   background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
-.slotrow .sub{flex:0 0 96px}
-.slotrow .sub input{font-family:inherit;text-align:left;font-size:13px}
+.slots{display:flex;flex-direction:column;gap:10px}
+.slotcard{background:var(--ink);border:1px solid var(--line);border-radius:12px;padding:11px 12px 12px}
+.slotcard .shead{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+.slotcard .sname{font-size:14px;font-weight:700;flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slotcard .szone{font-size:10px;color:var(--faint);flex:0 0 auto}
+.slotcard label{margin:0 0 4px;font-size:10px}
+.slotcard .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:9px}
+.slotcard select{padding:11px 12px;font-size:14px;width:100%}
+.slotcard input[type=number]{padding:11px 12px;font-size:17px;text-align:right;font-family:var(--mono)}
+.otherin{margin-top:6px;font-size:15px}
 .dayslot .subl{font-size:11px;color:var(--faint);margin-left:2px}
-.slotrow .sname{flex:1;min-width:0;font-size:12px;color:var(--sub);font-weight:600;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:11px}
-.slotrow .sin{flex:0 0 86px}
-.slotrow .sin label{margin:0 0 4px;font-size:10px}
-.slotrow input{padding:10px;font-size:16px;font-family:var(--mono);text-align:right}
 .dayslot{display:flex;align-items:baseline;gap:10px;padding:4px 0;font-size:13px}
 .dayslot .sn{flex:1;min-width:0;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dayslot .rk{font-family:var(--mono);font-weight:700;min-width:58px;text-align:right}
@@ -456,7 +455,7 @@ select{appearance:none;-webkit-appearance:none;
     <div id="r-slot-fields" class="hidden">
       <label>今日の枠ごとの結果</label>
       <div class="slots" id="r-slots"></div>
-      <div class="note">枠（ランキング）を選び直すと、過去の記録も正しい枠に付け替えられます。</div>
+      <div class="note">過去の記録は「記録」タブから開いて、枠・内容・順位を修正できます。</div>
     </div>
     <label id="r-primary-label">ボーダーポイント</label>
     <div class="border-inputs" id="r-border-primary"></div>
@@ -517,17 +516,23 @@ select{appearance:none;-webkit-appearance:none;
       <input type="number" id="b-reset" inputmode="numeric" placeholder="0" min="0" max="23">
       <label>走っているランキングと目標順位</label>
       <div class="slots">
-        <div class="slotrow">
-          <div class="f" id="b-slot1-wrap"></div>
-          <div class="sin"><input type="number" id="b-zone1" inputmode="numeric" placeholder="目標順位"></div>
+        <div class="slotcard">
+          <label>枠1</label>
+          <div id="b-slot1-wrap"></div>
+          <label style="margin-top:9px">目標順位（任意）</label>
+          <input type="number" id="b-zone1" inputmode="numeric" placeholder="例：50">
         </div>
-        <div class="slotrow">
-          <div class="f" id="b-slot2-wrap"></div>
-          <div class="sin"><input type="number" id="b-zone2" inputmode="numeric" placeholder="目標順位"></div>
+        <div class="slotcard">
+          <label>枠2</label>
+          <div id="b-slot2-wrap"></div>
+          <label style="margin-top:9px">目標順位（任意）</label>
+          <input type="number" id="b-zone2" inputmode="numeric" placeholder="例：100">
         </div>
-        <div class="slotrow">
-          <div class="f" id="b-slot3-wrap"></div>
-          <div class="sin"><input type="number" id="b-zone3" inputmode="numeric" placeholder="目標順位"></div>
+        <div class="slotcard">
+          <label>枠3</label>
+          <div id="b-slot3-wrap"></div>
+          <label style="margin-top:9px">目標順位（任意）</label>
+          <input type="number" id="b-zone3" inputmode="numeric" placeholder="空欄可">
         </div>
       </div>
       <div class="note">枠にはメディア名（マスメディア メインホール、JクラSPORTS など）を入れると、日替わりの種目は記録時の「内容」で書き分けられます。右側は自分が狙う順位（任意・空欄可）。</div>
@@ -2122,14 +2127,16 @@ function quickBarHtml(e, b, c){
     const rows = slots.map((sl,i)=>{
       const nm = sl.name;
       const p = prev ? slotDataOf(prev, i) : {rank:null,score:null};
-      return `<div class="slotrow">
-        <span class="sname">${esc(nm)}${sl.zone!=null?`<br><span style="font-size:10px;color:var(--faint)">目標 ${sl.zone}位</span>`:""}</span>
-        <div class="sub"><label>内容</label>
-          ${selectHtml(subOpts, "", `id="q-sub${i}sel"`, "q-sub"+i+"oth")}</div>
-        <div class="sin"><label>順位</label>
-          <input type="number" inputmode="numeric" id="q-rank${i}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
-        <div class="sin"><label>スコア</label>
-          <input type="number" inputmode="numeric" id="q-score${i}" placeholder="${p.score!=null?fmt(p.score):"—"}"></div>
+      return `<div class="slotcard">
+        <div class="shead"><span class="sname">${esc(nm)}</span>${sl.zone!=null?`<span class="szone">目標 ${sl.zone}位</span>`:""}</div>
+        <label>内容（その日のランキング）</label>
+        ${selectHtml(subOpts, "", `id="q-sub${i}sel"`, "q-sub"+i+"oth")}
+        <div class="frow">
+          <div><label>順位</label>
+            <input type="number" inputmode="numeric" id="q-rank${i}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
+          <div><label>スコア</label>
+            <input type="number" inputmode="numeric" id="q-score${i}" placeholder="${p.score!=null?fmt(p.score):"—"}"></div>
+        </div>
       </div>`;
     }).join("");
     return `<div class="quick">
@@ -2287,15 +2294,18 @@ function openRecordModal(recId){
       const d = r ? slotDataOf(r, i) : {rank:null,score:null};
       const p = prevRec2 ? slotDataOf(prevRec2, i) : {rank:null,score:null};
       const opts = [...new Set([...allSlotNames, nm].filter(Boolean))];
-      return `<div class="slotrow">
-        <div class="f"><label>ランキング（枠）</label>
-          ${selectHtml(opts, nm, `data-slot="${i}" data-f="name" id="r-name${i}sel"`, "r-name"+i+"oth")}</div>
-        <div class="sub"><label>内容</label>
-          ${selectHtml(subOpts2, d.sub||"", `data-slot="${i}" data-f="sub" id="r-sub${i}sel"`, "r-sub"+i+"oth")}</div>
-        <div class="sin"><label>順位</label>
-          <input type="number" inputmode="numeric" data-slot="${i}" data-f="rank" value="${d.rank??""}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
-        <div class="sin"><label>スコア</label>
-          <input type="number" inputmode="numeric" data-slot="${i}" data-f="score" value="${d.score??""}" placeholder="${p.score!=null?fmt(p.score):"—"}"></div>
+      return `<div class="slotcard">
+        <label>ランキング（枠）</label>
+        ${selectHtml(opts, nm, `data-slot="${i}" data-f="name" id="r-name${i}sel"`, "r-name"+i+"oth")}
+        <div style="height:9px"></div>
+        <label>内容（その日のランキング）</label>
+        ${selectHtml(subOpts2, d.sub||"", `data-slot="${i}" data-f="sub" id="r-sub${i}sel"`, "r-sub"+i+"oth")}
+        <div class="frow">
+          <div><label>順位</label>
+            <input type="number" inputmode="numeric" data-slot="${i}" data-f="rank" value="${d.rank??""}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
+          <div><label>スコア</label>
+            <input type="number" inputmode="numeric" data-slot="${i}" data-f="score" value="${d.score??""}" placeholder="${p.score!=null?fmt(p.score):"—"}"></div>
+        </div>
       </div>`;
     }).join("");
   }
