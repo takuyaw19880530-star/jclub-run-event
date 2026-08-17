@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260815.7";
+window.__BUILD__ = "20260817.3";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -289,6 +289,10 @@ textarea{min-height:64px;resize:vertical}
 .slots{display:flex;flex-direction:column;gap:8px}
 .slotrow{display:flex;align-items:flex-end;gap:8px}
 .slotrow .f{flex:1;min-width:0}
+.slotrow select{padding:10px;font-size:13px}
+.slotrow .sub{flex:0 0 96px}
+.slotrow .sub input{font-family:inherit;text-align:left;font-size:13px}
+.dayslot .subl{font-size:11px;color:var(--faint);margin-left:2px}
 .slotrow .sname{flex:1;min-width:0;font-size:12px;color:var(--sub);font-weight:600;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:11px}
 .slotrow .sin{flex:0 0 86px}
@@ -447,6 +451,7 @@ textarea{min-height:64px;resize:vertical}
     <div id="r-slot-fields" class="hidden">
       <label>今日の枠ごとの結果</label>
       <div class="slots" id="r-slots"></div>
+      <div class="note">枠（ランキング）を選び直すと、過去の記録も正しい枠に付け替えられます。</div>
     </div>
     <label id="r-primary-label">ボーダーポイント</label>
     <div class="border-inputs" id="r-border-primary"></div>
@@ -508,19 +513,19 @@ textarea{min-height:64px;resize:vertical}
       <label>走っているランキングと目標順位</label>
       <div class="slots">
         <div class="slotrow">
-          <div class="f"><input id="b-slot1" placeholder="枠1　例：シュートラッシュTOTAL"></div>
+          <div class="f"><input id="b-slot1" list="dl-media" placeholder="枠1　例：マスメディア メインホール"></div>
           <div class="sin"><input type="number" id="b-zone1" inputmode="numeric" placeholder="目標順位"></div>
         </div>
         <div class="slotrow">
-          <div class="f"><input id="b-slot2" placeholder="枠2　例：フォーチュングッズ1MATCH"></div>
+          <div class="f"><input id="b-slot2" list="dl-media" placeholder="枠2　例：JクラSPORTS"></div>
           <div class="sin"><input type="number" id="b-zone2" inputmode="numeric" placeholder="目標順位"></div>
         </div>
         <div class="slotrow">
-          <div class="f"><input id="b-slot3" placeholder="枠3　例：リミットフォーメーション1MATCH"></div>
+          <div class="f"><input id="b-slot3" list="dl-media" placeholder="枠3　例：SOCCER WISDOM"></div>
           <div class="sin"><input type="number" id="b-zone3" inputmode="numeric" placeholder="目標順位"></div>
         </div>
       </div>
-      <div class="note">右側は、その枠で自分が狙う順位です（任意）。ランキングごとに報酬の段階が違うので、狙うラインは自分で決めて入れてください。空欄でも順位の推移は記録されます。</div>
+      <div class="note">枠にはメディア名（マスメディア メインホール、JクラSPORTS など）を入れると、日替わりの種目は記録時の「内容」で書き分けられます。右側は自分が狙う順位（任意・空欄可）。</div>
       <div class="note">ゲーム内でランキングが切り替わる時刻です。マスメディアは毎日13:30〜14:00に集計されるので <b>14</b> を設定してください。</div>
     </div>
     <div id="b-goal-fields" class="hidden">
@@ -537,6 +542,9 @@ textarea{min-height:64px;resize:vertical}
     </div>
   </div>
 </div>
+
+<datalist id="dl-media"></datalist>
+<datalist id="dl-sub"></datalist>
 
 <!-- ============ モーダル：報酬追加 ============ -->
 <div class="modal-bg" id="m-rw">
@@ -617,6 +625,16 @@ const EVENT_TYPES = [
   {id:"other",   name:"その他",                   pt:"Pt"},
 ];
 const DEFAULT_RANKS = [10,50,100,300,500,1000];
+/* マスメディアのメディア一覧（プルダウン候補。ここにないものは自由入力できる） */
+const MEDIA_LIST = [
+  "マスメディア メインホール",
+  "ニュービーFOOTBALL",
+  "SOCCER ZONE",
+  "Football General",
+  "JクラSPORTS",
+  "SOCCER WISDOM",
+  "月刊Jクラクラシック",
+];
 const STATUS_LABEL = {active:"開催中", done:"完了", draft:"下書き"};
 
 /* ---------- ストア ---------- */
@@ -890,6 +908,18 @@ function normSlots(b){
     ? {name:s, zone:fallback}
     : {name:s.name, zone: s.zone!=null ? s.zone : fallback});
 }
+function usedSubNames(b){
+  /* これまで入力した「内容（種目）」を候補として集める */
+  const s = new Set();
+  (b.records||[]).forEach(r=>(r.slotData||[]).forEach(x=>{ if(x.sub) s.add(x.sub); }));
+  return [...s];
+}
+function fillDatalists(b){
+  const media = [...new Set([...MEDIA_LIST, ...slotsOf(b).map(s=>s.name).filter(Boolean),
+    ...(b.records||[]).flatMap(r=>(r.slotData||[]).map(x=>x.name)).filter(Boolean)])];
+  $("dl-media").innerHTML = media.map(m=>`<option value="${esc(m)}">`).join("");
+  $("dl-sub").innerHTML = usedSubNames(b).map(m=>`<option value="${esc(m)}">`).join("");
+}
 function slotsOf(b){
   const s = normSlots(b);
   return s.length ? s : [{name:"枠1", zone: numOrNull(b.targetRank)}];
@@ -905,9 +935,10 @@ function zoneOfSlot(b, name, i){
 function slotDataOf(r, i){
   /* 記録から枠iのデータを取り出す。枠0は旧形式(myRank/myPoints)にフォールバック */
   const sd = (r.slotData||[])[i];
-  if(sd && (numOrNull(sd.rank)!=null || numOrNull(sd.score)!=null)) return {rank:numOrNull(sd.rank), score:numOrNull(sd.score)};
-  if(i===0) return {rank:numOrNull(r.myRank), score:numOrNull(r.myPoints)};
-  return {rank:null, score:null};
+  if(sd && (numOrNull(sd.rank)!=null || numOrNull(sd.score)!=null))
+    return {rank:numOrNull(sd.rank), score:numOrNull(sd.score), sub: sd.sub||""};
+  if(i===0) return {rank:numOrNull(r.myRank), score:numOrNull(r.myPoints), sub:""};
+  return {rank:null, score:null, sub:""};
 }
 function dailyAnchor(e, b){
   /* デイリー集計の起点：イベント開始日の日次リセット時刻 */
@@ -1129,6 +1160,7 @@ function renderEvent(){
 
 /* ---------- 状況タブ ---------- */
 function renderDashDaily(e, b){
+  fillDatalists(b);
   const tRank = targetRankOf(e, b);
   const nowTs = Date.now();
   const todayKey = dayKeyOf(e, b, nowTs);
@@ -1239,7 +1271,7 @@ function renderDashDaily(e, b){
             if(d.rank==null && d.score==null) return "";
             const z = zoneOfSlot(b, nm, i);
             const inZone = d.rank!=null && d.rank<=z;
-            return `<div class="dayslot"><span class="sn">${esc(nm||("枠"+(i+1)))}</span>
+            return `<div class="dayslot"><span class="sn">${esc(nm||("枠"+(i+1)))}${d.sub?`<span class="subl">（${esc(d.sub)}）</span>`:""}</span>
               <span class="rk ${inZone?"inzone":""}">${d.rank!=null?fmt(d.rank)+"位":"—"}</span>
               <span class="sc">${d.score!=null?fmt(d.score):"—"}</span></div>`;
           }).join("");
@@ -1848,7 +1880,7 @@ function saveEvent(){
     const defBoards = data.type==="media"
       ? [{id:uid(), name:"メディアコイン", kind:"goal", goalPoints:null, dailyBonus:null, targetRank:null, borderRanks:[], records:[]},
          {id:uid(), name:"デイリー", kind:"daily", dailyResetHour:14, targetRank:100, borderRanks:[10,50,100,500],
-          slots:[{name:"枠1",zone:null},{name:"枠2",zone:null},{name:"枠3",zone:null}], records:[]}]
+          slots:[{name:"マスメディア メインホール",zone:null},{name:"枠2",zone:null},{name:"枠3",zone:null}], records:[]}]
       : [{id:uid(), name:"メイン", kind:"border", targetRank:null, borderRanks:[...DEFAULT_RANKS], records:[]}];
     const e = {id:uid(), ...data,
       boards: defBoards,
@@ -1990,6 +2022,7 @@ function onBoardKindChange(){
   $("b-kind-note").textContent = KIND_NOTE[k] || "";
 }
 function openBoardModal(mode){
+  if(ev()) fillDatalists(board() || ev().boards[0]);
   state.editBoardMode = mode; /* 'new' or boardId */
   const isNew = mode==="new";
   const b = isNew ? null : ev().boards.find(x=>x.id===mode);
@@ -2066,6 +2099,8 @@ function quickBarHtml(e, b, c){
       const p = prev ? slotDataOf(prev, i) : {rank:null,score:null};
       return `<div class="slotrow">
         <span class="sname">${esc(nm)}${sl.zone!=null?`<br><span style="font-size:10px;color:var(--faint)">目標 ${sl.zone}位</span>`:""}</span>
+        <div class="sub"><label>内容</label>
+          <input type="text" list="dl-sub" id="q-sub${i}" placeholder="${p.sub?esc(p.sub):"任意"}"></div>
         <div class="sin"><label>順位</label>
           <input type="number" inputmode="numeric" id="q-rank${i}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
         <div class="sin"><label>スコア</label>
@@ -2102,6 +2137,7 @@ function quickSave(){
     const slots = slotsOf(b);
     const slotData = slots.map((sl,i)=>({
       name:sl.name,
+      sub: (($("q-sub"+i)||{}).value||"").trim(),
       rank: numOrNull(($("q-rank"+i)||{}).value),
       score: numOrNull(($("q-score"+i)||{}).value),
     }));
@@ -2213,13 +2249,25 @@ function openRecordModal(recId){
   $("r-normal-fields").classList.toggle("hidden", isDaily);
   $("r-slot-fields").classList.toggle("hidden", !isDaily);
   if(isDaily){
+    fillDatalists(b);
     const names = (r && r.slotData && r.slotData.length) ? r.slotData.map(s=>s.name) : slotsOf(b).map(s=>s.name);
+    const allSlotNames = [...new Set([
+      ...slotsOf(b).map(s=>s.name),
+      ...(b.records||[]).flatMap(x=>(x.slotData||[]).map(s=>s.name)),
+      ...MEDIA_LIST,
+    ].filter(Boolean))];
     const prevRec2 = prevRecs.length ? prevRecs[prevRecs.length-1] : null;
     $("r-slots").innerHTML = names.map((nm,i)=>{
       const d = r ? slotDataOf(r, i) : {rank:null,score:null};
       const p = prevRec2 ? slotDataOf(prevRec2, i) : {rank:null,score:null};
+      const opts = [...new Set([...allSlotNames, nm].filter(Boolean))];
       return `<div class="slotrow">
-        <span class="sname">${esc(nm||("枠"+(i+1)))}</span>
+        <div class="f"><label>ランキング（枠）</label>
+          <select data-slot="${i}" data-f="name">
+            ${opts.map(o=>`<option value="${esc(o)}" ${o===nm?"selected":""}>${esc(o)}</option>`).join("")}
+          </select></div>
+        <div class="sub"><label>内容</label>
+          <input type="text" list="dl-sub" data-slot="${i}" data-f="sub" value="${esc(d.sub||"")}" placeholder="${p.sub?esc(p.sub):"任意"}"></div>
         <div class="sin"><label>順位</label>
           <input type="number" inputmode="numeric" data-slot="${i}" data-f="rank" value="${d.rank??""}" placeholder="${p.rank!=null?fmt(p.rank):"—"}"></div>
         <div class="sin"><label>スコア</label>
@@ -2276,10 +2324,13 @@ function saveRecord(){
   let slotData = null;
   if(b.kind==="daily"){
     const names = slotsOf(b).map(s=>s.name);
-    slotData = names.map((nm,i)=>({name:nm, rank:null, score:null}));
-    document.querySelectorAll("#r-slots input[data-slot]").forEach(inp=>{
-      const i = Number(inp.dataset.slot), f = inp.dataset.f, v = numOrNull(inp.value);
-      if(slotData[i]) slotData[i][f] = v;
+    slotData = names.map((nm,i)=>({name:nm, sub:"", rank:null, score:null}));
+    document.querySelectorAll("#r-slots input[data-slot], #r-slots select[data-slot]").forEach(inp=>{
+      const i = Number(inp.dataset.slot), f = inp.dataset.f;
+      if(!slotData[i]) return;
+      if(f==="name") slotData[i].name = (inp.value||"").trim() || slotData[i].name;
+      else if(f==="sub") slotData[i].sub = (inp.value||"").trim();
+      else slotData[i][f] = numOrNull(inp.value);
     });
   }
   const data = {
