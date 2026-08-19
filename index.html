@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260817.6";
+window.__BUILD__ = "20260817.7";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -453,7 +453,9 @@ select{appearance:none;-webkit-appearance:none;
       <div><label>自分の順位</label><input type="number" id="r-myrank" inputmode="numeric" placeholder="未確認は空欄"></div>
     </div>
     <div id="r-slot-fields" class="hidden">
-      <label>今日の枠ごとの結果</label>
+      <label>何日目の記録か</label>
+      <select id="r-day"></select>
+      <label style="margin-top:14px">枠ごとの結果</label>
       <div class="slots" id="r-slots"></div>
       <div class="note">過去の記録は「記録」タブから開いて、枠・内容・順位を修正できます。</div>
     </div>
@@ -722,7 +724,16 @@ function typeName(id){ const t=EVENT_TYPES.find(t=>t.id===id); return t?t.name:"
    計算ロジック（引き継ぎ資料 §6-§7 準拠）
 ===================================================== */
 function sortedRecords(b){
-  return [...(b.records||[])].sort((a,x)=>a.ts-x.ts);
+  const rs = [...(b.records||[])];
+  if(b && b.kind==="daily" && rs.some(r=>r.day!=null)){
+    /* デイリーはDay優先で並べる（同Dayは時刻順） */
+    return rs.sort((x,y)=>{
+      const dx = x.day!=null ? x.day : null, dy = y.day!=null ? y.day : null;
+      if(dx!=null && dy!=null && dx!==dy) return dx-dy;
+      return x.ts-y.ts;
+    });
+  }
+  return rs.sort((x,y)=>x.ts-y.ts);
 }
 function borderSeries(b, rank){
   return sortedRecords(b)
@@ -978,6 +989,19 @@ function dailyAnchor(e, b){
   return d.getTime();
 }
 function dayKeyOf(e, b, ts){ return Math.floor((ts - dailyAnchor(e,b)) / 86400000); }
+function dayCountOf(e, b){
+  if(!e.start || !e.end) return 7;
+  const n = Math.ceil((e.end - dailyAnchor(e,b)) / 86400000);
+  return Math.min(14, Math.max(1, n));
+}
+function dayOfRecord(e, b, r){
+  if(r.day!=null) return r.day - 1;
+  return dayKeyOf(e, b, r.ts);
+}
+function todayKeyOf(e, b){
+  const k = dayKeyOf(e, b, Date.now());
+  return Math.min(Math.max(0, k), dayCountOf(e,b)-1);
+}
 function targetRankOf(e, b){
   if(b && b.targetRank) return Number(b.targetRank);
   if(e && e.targetRank) return Number(e.targetRank);
@@ -1191,9 +1215,9 @@ function renderDashDaily(e, b){
   fillDatalists(b);
   const tRank = targetRankOf(e, b);
   const nowTs = Date.now();
-  const todayKey = dayKeyOf(e, b, nowTs);
+  const todayKey = todayKeyOf(e, b);
   const recs = sortedRecords(b);
-  const today = recs.filter(r=>dayKeyOf(e,b,r.ts)===todayKey);
+  const today = recs.filter(r=>dayOfRecord(e,b,r)===todayKey);
   const myT = today.map(r=>({ts:r.ts, v:numOrNull(r.myPoints)})).filter(p=>p.v!=null);
   const bdT = tRank!=null ? today.map(r=>({ts:r.ts, v:r.borders?numOrNull(r.borders[tRank]):null})).filter(p=>p.v!=null) : [];
   const dayEnd = Math.min(dailyAnchor(e,b) + (todayKey+1)*86400000, e.end || Infinity);
@@ -1245,7 +1269,7 @@ function renderDashDaily(e, b){
         if(d.rank==null) return;
         const key = nm || ("枠"+(i+1));
         if(!byName[key]){ byName[key] = {}; order.push(key); nameIdx[key] = i; }
-        byName[key][dayKeyOf(e,b,r.ts)] = d;   /* 同じ日は後の記録で上書き＝その日の最終 */
+        byName[key][dayOfRecord(e,b,r)] = d;   /* 同じ日は後の記録で上書き＝その日の最終 */
       });
     });
     const current = slotsOf(b).map(s=>s.name);
@@ -1282,13 +1306,19 @@ function renderDashDaily(e, b){
         `<div class="note">目標を設定した枠は「達成した日数／走った日数」を表示します。ランキングごとに報酬の段階が違うため、判定は自分で決めた目標を基準にしています。次回どの枠を選ぶかの判断材料になります。</div></div>`;
     }
   }
-  /* 日別の戦績（その日の全記録） */
+  /* 日別の戦績（Day 1〜N を常に表示） */
   const byDay = {};
-  recs.forEach(r=>{ const k=dayKeyOf(e,b,r.ts); (byDay[k]=byDay[k]||[]).push(r); });
-  const keys = Object.keys(byDay).map(Number).sort((a,x)=>x-a);
-  if(keys.length){
+  recs.forEach(r=>{ const k=dayOfRecord(e,b,r); (byDay[k]=byDay[k]||[]).push(r); });
+  const nDays = dayCountOf(e, b);
+  const keys = Array.from({length:nDays},(_,k)=>k).reverse();
+  {
     html += `<div class="card"><h3>日別の戦績</h3>` + keys.map(k=>{
-      const rs = byDay[k];
+      const rs = byDay[k] || [];
+      if(!rs.length){
+        return `<div class="daylog">
+          <div class="dh"><span class="dn" style="color:${k===todayKey?"var(--border-c)":"var(--faint)"}">Day ${k+1}${k===todayKey?"（今日）":""}</span>
+            <span class="dm">未記録</span></div></div>`;
+      }
       return `<div class="daylog">
         <div class="dh"><span class="dn" style="color:${k===todayKey?"var(--border-c)":"var(--text)"}">Day ${k+1}${k===todayKey?"（今日）":""}</span>
           <span class="dm">${rs.length}件</span></div>
@@ -1627,10 +1657,10 @@ function renderRecs(){
     </button>`;
   };
   if(b.kind==="daily"){
-    const todayKey = dayKeyOf(e, b, Date.now());
+    const todayKey = todayKeyOf(e, b);
     let out = "", lastKey = null;
     recs.forEach(r=>{
-      const k = dayKeyOf(e, b, r.ts);
+      const k = dayOfRecord(e, b, r);
       if(k !== lastKey){
         out += `<div style="font-size:12px;color:var(--border-c);font-weight:700;margin:16px 2px 8px">Day ${k+1}${k===todayKey?"（今日）":""}</div>`;
         lastKey = k;
@@ -1690,7 +1720,7 @@ function renderChart(){
   const e=ev(), b=board(); let c=calc(e,b);
   let dayBounds = null;
   if(b.kind==="daily"){
-    const tk = dayKeyOf(e, b, Date.now());
+    const tk = todayKeyOf(e, b);
     c = {...c,
       my: c.my.filter(p=>dayKeyOf(e,b,p.ts)===tk),
       bd: c.bd.filter(p=>dayKeyOf(e,b,p.ts)===tk),
@@ -2139,8 +2169,12 @@ function quickBarHtml(e, b, c){
         </div>
       </div>`;
     }).join("");
+    const nDays = dayCountOf(e, b), tk = todayKeyOf(e, b);
+    const daySel = `<select id="q-day" style="width:auto;padding:5px 26px 5px 9px;font-size:12px;display:inline-block">
+      ${Array.from({length:nDays},(_,k)=>`<option value="${k+1}" ${k===tk?"selected":""}>Day ${k+1}${k===tk?"（今日）":""}</option>`).join("")}
+    </select>`;
     return `<div class="quick">
-      <h3>今日の3枠を1タップで記録<span>日時は自動</span></h3>
+      <h3>枠ごとの結果を記録${daySel}</h3>
       <div class="slots">${rows}</div>
       <button class="go" style="width:100%;margin-top:11px;text-align:center" onclick="quickSave()">記録</button>
       <div class="hint">走る項目を変えたら、上の「${esc(b.name)} ✎」から枠名を編集できます。</div>
@@ -2176,7 +2210,8 @@ function quickSave(){
     if(!slotData.some(s=>s.rank!=null || s.score!=null)){
       alert("数字を入力してから「記録」を押してください。"); return;
     }
-    const rec = {id:uid(), ts:Date.now(), slotData,
+    const dsel = numOrNull(($("q-day")||{}).value);
+    const rec = {id:uid(), ts:Date.now(), day: dsel ?? (todayKeyOf(e,b)+1), slotData,
       myPoints: slotData[0].score, myRank: slotData[0].rank, borders:{}, memo:""};
     b.records.push(rec);
     saveDB(); renderEvent(); toast("記録しました");
@@ -2282,6 +2317,10 @@ function openRecordModal(recId){
   $("r-slot-fields").classList.toggle("hidden", !isDaily);
   if(isDaily){
     fillDatalists(b);
+    const nDays = dayCountOf(e, b);
+    const curDay = r ? dayOfRecord(e, b, r) : todayKeyOf(e, b);
+    $("r-day").innerHTML = Array.from({length:nDays}, (_,k)=>
+      `<option value="${k+1}" ${k===curDay?"selected":""}>Day ${k+1}${k===todayKeyOf(e,b)?"（今日）":""}</option>`).join("");
     const names = (r && r.slotData && r.slotData.length) ? r.slotData.map(s=>s.name) : slotsOf(b).map(s=>s.name);
     const allSlotNames = [...new Set([
       ...slotsOf(b).map(s=>s.name),
@@ -2374,6 +2413,7 @@ function saveRecord(){
   }
   const data = {
     ts,
+    day: (b.kind==="daily" && $("r-day").value) ? Number($("r-day").value) : undefined,
     slotData,
     myPoints: slotData ? slotData[0].score : numOrNull($("r-mypt").value),
     myRank: slotData ? slotData[0].rank : numOrNull($("r-myrank").value),
