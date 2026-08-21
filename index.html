@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>ランイベ手帳（サンプル）</title>
+<title>ランイベ手帳</title>
 <script>
 /* ===== 自動更新チェック（iOSホーム画面アプリのキャッシュ対策） =====
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
@@ -631,7 +631,7 @@ select{appearance:none;-webkit-appearance:none;
 ===================================================== */
 
 /* ---------- 定数 ---------- */
-const LS_KEY = "jclub_ranibe_sample_v25";
+const LS_KEY = "jclub_ranibe_v1";
 const EVENT_TYPES = [
   {id:"trophy",  name:"トロフィーランブル",       pt:"ランブルPt"},
   {id:"emblem",  name:"エンブレムゲッター",       pt:"イベントPt"},
@@ -2607,133 +2607,6 @@ function drawLearnChart(use){
 }
 
 /* ---------- 起動 ---------- */
-/* ---------- サンプルデータ投入（デモ版のみ・初回起動時） ---------- */
-function seedSample(){
-  if(db.events.length) return;
-  const now = Date.now(), H = 3600000;
-  db.settings = {gpRegen:20, bpRegen:1, vamoPerHeal:50}; /* デモ用の例値 */
-  /* ===== 1. 開催中：トロフィーランブル（残り約38時間・撤退判定＆リマインドデモ） ===== */
-  const tr = {
-    id:"smp-tr", type:"trophy", name:"8月 トロフィーランブル",
-    start: now-130*H, end: now+38*H,
-    targetRank:100, safetyMargin:5, pointName:"ランブルPt",
-    tokko:"MVP三平 ×4.0（キラ）", memo:"目標：月間MVP 50%券（100位以内）",
-    status:"active",
-    boards:[{id:"smp-tr-b", name:"メイン", targetRank:null,
-      borderRanks:[10,50,100,300,500,1000],
-      lap:{pt:26000, min:3, gp:20, bp:1},
-      lapLog:[
-        {id:"lg1", ts:now-126*H, tokko:280, pt:16000, min:3, gp:20, bp:1},
-        {id:"lg2", ts:now-60*H,  tokko:420, pt:23000, min:3, gp:20, bp:1},
-        {id:"lg3", ts:now-14*H,  tokko:480, pt:26000, min:3, gp:20, bp:1},
-      ],
-      records:[
-        {id:"t1", ts:now-126*H, myPoints:42000,  myRank:412, borders:{100:61000, 300:30000, 1000:9000}, vamo:4230, gpHeal:32, gpHealHalf:64, bpHeal:6, bpHealMini:120, tokko:"280", memo:"開幕。11連×8で特効確保"},
-        {id:"t2", ts:now-108*H, myPoints:238000, myRank:188, borders:{100:265000, 300:142000},  vamo:3480, gpHeal:29, gpHealHalf:58, bpHeal:6, bpHealMini:120, tokko:"350", memo:""},
-        {id:"t3", ts:now-84*H,  myPoints:520000, myRank:141, borders:{100:590000, 50:880000, 300:310000}, vamo:3480, gpHeal:24, gpHealHalf:48, bpHeal:5, bpHealMini:100, tokko:"350", memo:"仕事の日は朝晩のみ"},
-        {id:"t4", ts:now-60*H,  myPoints:940000, myRank:118, borders:{100:1020000, 50:1490000},  vamo:3180, gpHeal:19, gpHealHalf:38, bpHeal:5, bpHealMini:100, tokko:"420", memo:"追い11連×2、特効420%に"},
-        {id:"t5", ts:now-38*H,  myPoints:1430000, myRank:106, borders:{100:1480000, 50:2130000, 10:4100000}, vamo:2980, gpHeal:15, gpHealHalf:30, bpHeal:4, bpHealMini:80, tokko:"420", memo:""},
-        {id:"t6", ts:now-14*H,  myPoints:2100000, myRank:96,  borders:{100:2050000, 50:2960000, 300:1180000},  vamo:2760, gpHeal:11, gpHealHalf:22, bpHeal:3, bpHealMini:60, tokko:"480", memo:"100位ライン突破。ここから粘る"},
-        {id:"t7", ts:now-5*H,   myPoints:2450000, myRank:97,  borders:{100:2180000, 50:3150000, 10:6200000},  vamo:2610, gpHeal:8, gpHealHalf:16,  bpHeal:3, bpHealMini:60, tokko:"480", memo:"6月実績だと終盤+80%伸びる。ペース上げないと厳しい"},
-      ]}],
-    rewards:[
-      {id:"rw1", points:50000,    label:"Liteガチャ券 ×3",        done:true},
-      {id:"rw2", points:150000,   label:"お気に入り券",            done:true},
-      {id:"rw3", points:400000,   label:"金ソックス ×10",          done:true},
-      {id:"rw4", points:800000,   label:"G80以上ガチャ券",         done:true},
-      {id:"rw5", points:1500000,  label:"お気に入り券 ×2",         done:true},
-      {id:"rw6", points:2500000,  label:"G85以上ガチャ券",         done:false},
-      {id:"rw7", points:4000000,  label:"フォーカスドライト券",     done:false},
-      {id:"rw8", points:6500000,  label:"G85以上お気に入り券",      done:false},
-    ]};
-  /* ===== 2. 開催中：マスメディア（複数ボード・残り4日） ===== */
-  const mm = {
-    id:"smp-mm", type:"media", name:"26/27シーズン開幕記念マスメディア",
-    start: now-72*H, end: now+96*H,
-    targetRank:300, safetyMargin:5, pointName:"スコア",
-    tokko:"リブート（G89以上+150%）", memo:"1日3枠：シュートラッシュTOTAL(100位)／フォーチュングッズ1MATCH(50位)／リミットフォーメーション1MATCH(10位)\n集計は毎日13:30〜14:00",
-    status:"active",
-    boards:[
-      {id:"smp-mm-g", name:"メディアコイン", kind:"goal", goalPoints:45000, dailyBonus:2500,
-       targetRank:null, borderRanks:[],
-       lap:{pt:600, min:4, gp:20, bp:null},
-       records:[
-        {id:"mg1", ts:now-70*H, myPoints:4620,  vamo:1850, gpHeal:6, gpHealHalf:12, tokko:"245", memo:"初日。3枠登録"},
-        {id:"mg2", ts:now-46*H, myPoints:16800, vamo:1700, gpHeal:6, gpHealHalf:10, tokko:"245", memo:""},
-        {id:"mg3", ts:now-20*H, myPoints:28400, vamo:1580, gpHeal:5, gpHealHalf:9,  tokko:"245", memo:"G85カード交換ぶんは確保"},
-       ]},
-      {id:"smp-mm-b1", name:"デイリー", kind:"daily", dailyResetHour:14,
-       slots:[{name:"メインホール",zone:50},{name:"JクラSPORTS",zone:100},{name:"SOCCER WISDOM",zone:null}],
-       borderRanks:[10,50,100,500],
-       records:[
-        {id:"m1", ts:now-68*H, day:1, slotData:[
-          {name:"メインホール", sub:"EP TOTAL", rank:88, score:14200},
-          {name:"JクラSPORTS", sub:"EP TOTAL", rank:120, score:640},
-          {name:"SOCCER WISDOM", sub:"G84以下 TOTAL", rank:210, score:3100}],
-         myRank:88, myPoints:14200, borders:{}, memo:"Day1 手探り"},
-        {id:"m2", ts:now-44*H, day:2, slotData:[
-          {name:"メインホール", sub:"リミットフォーメーション1MATCH", rank:32, score:9800},
-          {name:"JクラSPORTS", sub:"EP TOTAL", rank:96, score:820},
-          {name:"SOCCER WISDOM", sub:"タイプ制限 TOTAL", rank:185, score:3400}],
-         myRank:32, myPoints:9800, borders:{}, memo:"メインホールが当たり回だった"},
-        {id:"m3", ts:now-20*H, day:3, slotData:[
-          {name:"メインホール", sub:"スキルストライク TOTAL", rank:110, score:12300},
-          {name:"JクラSPORTS", sub:"EP TOTAL", rank:60, score:980},
-          {name:"SOCCER WISDOM", sub:"G84以下 TOTAL", rank:230, score:3050}],
-         myRank:110, myPoints:12300, borders:{}, memo:"スキル系は苦手"},
-        {id:"m4", ts:now-2*H, day:4, slotData:[
-          {name:"メインホール", sub:"シュートラッシュ TOTAL", rank:41, score:15600},
-          {name:"JクラSPORTS", sub:"EP TOTAL", rank:88, score:1050},
-          {name:"SOCCER WISDOM", sub:"フォーメーション制限 1MATCH", rank:260, score:1700}],
-         myRank:41, myPoints:15600, borders:{}, memo:"433Cが効いた"},
-       ]},
-    ],
-    rewards:[
-      {id:"rwm0", points:12000, label:"クラシックチケット", done:true},
-      {id:"rwm1", points:8000,  label:"金ホイッスル",            done:true},
-      {id:"rwm2", points:25000, label:"G85カード",              done:true},
-      {id:"rwm3", points:45000, label:"お気に入り券",            done:false},
-    ]};
-  /* ===== 3. 完了：6月 トロフィーランブル（同種の学習データ） ===== */
-  const trDur = 168*H, trEnd = now-200*H, trStart = trEnd-trDur;
-  const F100 = 2900000, F50 = 4200000;
-  const shape = [[0.10,0.03],[0.30,0.13],[0.50,0.28],[0.70,0.47],[0.85,0.66],[0.95,0.85],[1.00,1.00]];
-  const tr0 = {
-    id:"smp-tr0", type:"trophy", name:"6月 トロフィーランブル",
-    start: trStart, end: trEnd,
-    targetRank:100, safetyMargin:5, pointName:"ランブルPt",
-    tokko:"周年JOKER ×3.5", memo:"最終94位で100位圏。最終24hでボーダー+52%の伸び。",
-    status:"done",
-    boards:[{id:"smp-tr0-b", name:"メイン", targetRank:null, borderRanks:[50,100],
-      records: shape.map((s,i)=>({
-        id:"h"+i, ts: trStart + s[0]*trDur,
-        myPoints: Math.round(F100*s[1]*1.04),
-        myRank: 90+Math.round(20*(1-s[0])),
-        borders: {100: Math.round(F100*s[1]), 50: Math.round(F50*s[1])},
-        vamo: 4800 - Math.round(2100*s[0]), gpHeal: 30-Math.round(22*s[0]), bpHeal: 8-Math.round(5*s[0]),
-        memo: i===shape.length-1 ? "最終確定" : "",
-      }))}],
-    rewards:[{id:"rwt0", points:2500000, label:"G85以上ガチャ券", done:true}]};
-  /* ===== 4. 完了：7月 パネルストライカー ===== */
-  const ps = {
-    id:"smp-ps", type:"panel", name:"7月 パネルストライカー",
-    start: now-500*H, end: now-330*H,
-    targetRank:100, safetyMargin:5, pointName:"ストライカーPt",
-    tokko:"FP甲府 ×3.0", memo:"最終86位。金MVP 50%券→外れ（銀）。",
-    status:"done",
-    boards:[{id:"smp-ps-b", name:"メイン", targetRank:null, borderRanks:[50,100,300],
-      records:[
-        {id:"p1", ts:now-490*H, myPoints:95000,   myRank:210, borders:{100:120000, 300:55000}, vamo:5100, gpHeal:28, gpHealHalf:56, bpHeal:7, bpHealMini:140, tokko:"300", memo:""},
-        {id:"p2", ts:now-430*H, myPoints:820000,  myRank:130, borders:{100:870000, 50:1250000}, vamo:4400, gpHeal:20, gpHealHalf:40, bpHeal:6, bpHealMini:120, tokko:"390", memo:""},
-        {id:"p3", ts:now-360*H, myPoints:1650000, myRank:104, borders:{100:1640000, 50:2380000}, vamo:3900, gpHeal:13, gpHealHalf:26, bpHeal:4, bpHealMini:80, tokko:"390", memo:""},
-        {id:"p4", ts:now-331*H, myPoints:2380000, myRank:86,  borders:{100:2330000, 50:3410000, 300:1290000}, vamo:3520, gpHeal:9, gpHealHalf:18, bpHeal:3, bpHealMini:60, tokko:"470", memo:"最終確定"},
-      ]}],
-    rewards:[{id:"rwp1", points:2000000, label:"G85以上ガチャ券", done:true}]};
-  db.events = [tr, mm, tr0, ps];
-  saveDB();
-}
-seedSample();
-
 window.addEventListener("resize", ()=>{
   if(state.evId && state.tab==="chart") renderChart();
   if(!$("view-learn").classList.contains("hidden")) renderLearn();
