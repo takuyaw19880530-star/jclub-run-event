@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260821.1";
+window.__BUILD__ = "20260824.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -309,6 +309,21 @@ select{appearance:none;-webkit-appearance:none;
 .dayslot .rk{font-family:var(--mono);font-weight:700;font-size:15px;display:block}
 .dayslot .sc{font-family:var(--mono);color:var(--faint);font-size:11px;display:block;margin-top:2px}
 .inzone{color:var(--safe)!important}
+.rv-head{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-radius:var(--radius);padding:16px 16px 17px;margin-bottom:14px;text-align:center}
+.rv-head .badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;
+  padding:4px 12px;border-radius:99px;margin-bottom:11px}
+.rv-head .kv{font-size:12px;color:var(--faint);margin-top:9px;line-height:1.7}
+.rv-head .big{font-size:34px;font-family:var(--mono);font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.rv-head .unit{font-size:13px;color:var(--sub);margin-left:4px;font-family:var(--font)}
+.rv-b{border-top:1px solid var(--line);padding:13px 2px 4px}
+.rv-b .bn{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:baseline;gap:8px}
+.rv-b .bk{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:99px;padding:1px 7px;font-weight:400}
+.rv-g{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.rv-g .st{background:var(--ink);border-radius:10px;padding:9px 11px}
+.rv-g .st .k{font-size:10px;color:var(--faint);margin-bottom:4px}
+.rv-g .st .v{font-size:18px;font-family:var(--mono);font-weight:700}
+.rv-g .st .v .u{font-size:11px;color:var(--faint);margin-left:2px;font-family:var(--font)}
 .sumrow{border-top:1px solid var(--line);padding:12px 2px 13px}
 .sumrow .shead{display:flex;align-items:baseline;gap:8px;margin-bottom:9px}
 .sumrow .sn{flex:1;min-width:0;font-weight:700;font-size:14px;line-height:1.35;word-break:break-word}
@@ -1203,7 +1218,8 @@ function renderEvent(){
   $("ev-title").textContent = e.name || "（無題）";
   /* ボードバー */
   const bb = $("board-bar");
-  bb.style.display = state.tab==="rw" ? "none" : "flex";
+  const reviewing = e.status==="done" && state.tab==="dash";
+  bb.style.display = (state.tab==="rw" || reviewing) ? "none" : "flex";
   const KIND_MARK = {goal:"🎯", daily:"📅"};
   bb.innerHTML = e.boards.map(x=>{
     const on = x.id===board().id;
@@ -1219,6 +1235,45 @@ function renderEvent(){
 }
 
 /* ---------- 状況タブ ---------- */
+function slotStats(e, b){
+  /* 枠名ごとに日別の最終記録を集計（枠を入れ替えても混ざらないよう名前で束ねる） */
+  const recs = sortedRecords(b);
+  const byName = {}, order = [], nameIdx = {};
+  recs.forEach(r=>{
+    const names = (r.slotData && r.slotData.length) ? r.slotData.map(s=>s.name) : slotsOf(b).map(s=>s.name);
+    names.forEach((nm,i)=>{
+      const d = slotDataOf(r, i);
+      if(d.rank==null) return;
+      const key = nm || ("枠"+(i+1));
+      if(!byName[key]){ byName[key] = {}; order.push(key); nameIdx[key] = i; }
+      byName[key][dayOfRecord(e,b,r)] = d;
+    });
+  });
+  const current = slotsOf(b).map(s=>s.name);
+  const sortedNames = [...order].sort((x,y)=>{
+    const ix = current.indexOf(x), iy = current.indexOf(y);
+    if(ix>=0 && iy>=0) return ix-iy;
+    if(ix>=0) return -1;
+    if(iy>=0) return 1;
+    return 0;
+  });
+  return sortedNames.map(nm=>{
+    const perDay = byName[nm];
+    const days = Object.keys(perDay).map(Number).sort((a,x)=>a-x);
+    if(!days.length) return null;
+    const ranks = days.map(k=>perDay[k].rank);
+    const scores = days.map(k=>perDay[k].score).filter(v=>v!=null);
+    const z = zoneOfSlot(b, nm, nameIdx[nm] ?? 0);
+    const inZone = z!=null ? ranks.filter(r=>r<=z).length : null;
+    const bestDay = days.reduce((p,k)=>perDay[k].rank < perDay[p].rank ? k : p, days[0]);
+    return {name:nm, zone:z, active: current.includes(nm), n:days.length,
+      best:Math.min(...ranks), bestDay: bestDay+1,
+      avg: ranks.reduce((p,x)=>p+x,0)/ranks.length,
+      worst: Math.max(...ranks),
+      inZone, rate: z!=null ? inZone/days.length : null,
+      bestScore: scores.length ? Math.max(...scores) : null};
+  }).filter(Boolean);
+}
 function renderDashDaily(e, b){
   fillDatalists(b);
   const tRank = targetRankOf(e, b);
@@ -1267,40 +1322,7 @@ function renderDashDaily(e, b){
   </div>`;
   /* 枠別サマリー（次回の枠選びの材料） */
   {
-    /* 枠名ごとに集計（途中で枠を入れ替えても混ざらないよう、位置ではなく名前で束ねる） */
-    const byName = {};   /* name -> {dayKey -> data} */
-    const order = [], nameIdx = {};
-    recs.forEach(r=>{
-      const names = (r.slotData && r.slotData.length) ? r.slotData.map(s=>s.name) : slotsOf(b).map(s=>s.name);
-      names.forEach((nm,i)=>{
-        const d = slotDataOf(r, i);
-        if(d.rank==null) return;
-        const key = nm || ("枠"+(i+1));
-        if(!byName[key]){ byName[key] = {}; order.push(key); nameIdx[key] = i; }
-        byName[key][dayOfRecord(e,b,r)] = d;   /* 同じ日は後の記録で上書き＝その日の最終 */
-      });
-    });
-    const current = slotsOf(b).map(s=>s.name);
-    const sortedNames = [...order].sort((x,y)=>{
-      const ix = current.indexOf(x), iy = current.indexOf(y);
-      if(ix>=0 && iy>=0) return ix-iy;   /* 現在走っている枠を先に、登録順で */
-      if(ix>=0) return -1;
-      if(iy>=0) return 1;
-      return 0;
-    });
-    const stats = sortedNames.map(nm=>{
-      const perDay = byName[nm];
-      const days = Object.keys(perDay).map(Number).sort((a,x)=>a-x);
-      if(!days.length) return null;
-      const ranks = days.map(k=>perDay[k].rank);
-      const scores = days.map(k=>perDay[k].score).filter(v=>v!=null);
-      const z = zoneOfSlot(b, nm, nameIdx[nm] ?? 0);
-      const inZone = z!=null ? ranks.filter(r=>r<=z).length : null;
-      return {name:nm, zone:z, active: current.includes(nm), n:days.length, best:Math.min(...ranks),
-        avg: ranks.reduce((p,x)=>p+x,0)/ranks.length,
-        inZone, rate: z!=null ? inZone/days.length : null,
-        bestScore: scores.length ? Math.max(...scores) : null};
-    }).filter(Boolean);
+    const stats = slotStats(e, b);
     if(stats.length){
       html += `<div class="card"><h3>枠別サマリー（次回の枠選び用）</h3>` +
         stats.map(s=>`<div class="sumrow" style="${s.active?"":"opacity:.55"}">
@@ -1357,8 +1379,145 @@ function renderDashDaily(e, b){
   html += `<button class="btn ghost" onclick="openRecordModal()">くわしく記録（メモ・ボーダー）</button>`;
   $("tab-dash").innerHTML = html;
 }
+function reviewResourceDelta(e){
+  /* 全ボード横断で、資源が入っている最初と最後の記録から消費量を出す */
+  const keys = [["vamo","バモ"],["gpHeal","GP薬 フル"],["gpHealHalf","GP薬 ハーフ"],
+                ["bpHeal","BP薬 フル"],["bpHealMini","BP薬 ミニ"]];
+  const all = [];
+  (e.boards||[]).forEach(b=>(b.records||[]).forEach(r=>all.push(r)));
+  all.sort((a,b)=>a.ts-b.ts);
+  const out = [];
+  keys.forEach(([k,label])=>{
+    const hits = all.filter(r=>numOrNull(r[k])!=null);
+    if(hits.length<2) return;
+    const first = numOrNull(hits[0][k]), last = numOrNull(hits[hits.length-1][k]);
+    out.push({label, first, last, used: first-last});
+  });
+  const tokkoHits = all.filter(r=>r.tokko!=null && r.tokko!=="");
+  const tokko = tokkoHits.length ? {first:tokkoHits[0].tokko, last:tokkoHits[tokkoHits.length-1].tokko} : null;
+  const nRes = all.filter(r=>keys.some(([k])=>numOrNull(r[k])!=null)).length;
+  return {rows:out, tokko, nRes};
+}
+function renderReview(e){
+  const days = (e.start && e.end) ? Math.max(1, Math.round((e.end-e.start)/86400000)) : null;
+  const pn = e.pointName || "pt";
+  let html = "";
+
+  /* ---- ヘッダー：一番の成果を大きく ---- */
+  const goalB = (e.boards||[]).find(b=>b.kind==="goal");
+  let headline = "", sub = "", badgeText = "完了", badgeCls = "s-none";
+  if(goalB){
+    const my = mySeries(goalB), last = my.length ? my[my.length-1].v : null;
+    const goal = numOrNull(goalB.goalPoints);
+    if(last!=null && goal!=null){
+      const ok = last >= goal;
+      badgeText = ok ? "目標達成" : "目標未達";
+      badgeCls = ok ? "s-safe" : "s-danger";
+      headline = `<div class="big">${fmt(last)}<span class="unit">${esc(pn)}</span></div>`;
+      sub = `目標 ${fmt(goal)} に対して ${ok?"+":""}${fmt(last-goal)}（${Math.round(last/goal*100)}%）`;
+    }else if(last!=null){
+      headline = `<div class="big">${fmt(last)}<span class="unit">${esc(pn)}</span></div>`;
+    }
+  }
+  if(!headline){
+    /* 目標型がなければ、最良順位を見出しにする */
+    let best=null, bestName="";
+    (e.boards||[]).forEach(b=>{
+      if(b.kind==="daily"){
+        slotStats(e,b).forEach(s=>{ if(best==null || s.best<best){ best=s.best; bestName=s.name; } });
+      }else{
+        const rs = sortedRecords(b).map(r=>numOrNull(r.myRank)).filter(v=>v!=null);
+        if(rs.length){ const m=Math.min(...rs); if(best==null||m<best){best=m;bestName=b.name;} }
+      }
+    });
+    if(best!=null){
+      headline = `<div class="big">${fmt(best)}<span class="unit">位</span></div>`;
+      sub = `最高順位（${esc(bestName)}）`;
+    }
+  }
+  html += `<div class="rv-head">
+    <span class="badge ${badgeCls}">${badgeText}</span>
+    ${headline || `<div class="big">—</div>`}
+    ${sub?`<div class="kv">${sub}</div>`:""}
+    <div class="kv">${e.start?fmtDT(e.start):"—"} 〜 ${e.end?fmtDT(e.end):"—"}${days?`　（${days}日間）`:""}
+      ${e.tokko?`<br>特効：${esc(e.tokko)}`:""}</div>
+  </div>`;
+
+  /* ---- ボードごとの総括 ---- */
+  html += `<div class="card"><h3>ボード別の結果</h3>`;
+  (e.boards||[]).forEach(b=>{
+    const kindLabel = b.kind==="goal" ? "目標型" : b.kind==="daily" ? "デイリー型" : "ランキング型";
+    html += `<div class="rv-b"><div class="bn">${esc(b.name)}<span class="bk">${kindLabel}</span></div>`;
+    const recs = sortedRecords(b);
+    if(!recs.length){
+      html += `<div class="note" style="margin:0 0 10px">記録なし</div></div>`;
+      return;
+    }
+    if(b.kind==="daily"){
+      const stats = slotStats(e, b);
+      const nDays = new Set(recs.map(r=>dayOfRecord(e,b,r))).size;
+      html += `<div class="rv-g">
+        <div class="st"><div class="k">走った日数</div><div class="v">${nDays}<span class="u">日</span></div></div>
+        <div class="st"><div class="k">記録した枠</div><div class="v">${stats.length}<span class="u">種類</span></div></div>
+      </div>`;
+      if(stats.length){
+        const sorted = [...stats].sort((x,y)=>x.avg-y.avg);
+        html += `<div style="margin-top:11px">` + sorted.map(s=>`<div class="sumrow">
+          <div class="shead"><span class="sn">${esc(s.name)}</span>
+            ${s.zone!=null?`<span class="goal">目標 ${fmt(s.zone)}位</span>`:""}</div>
+          <div class="stats">
+            <div class="st"><div class="k">最高</div><div class="v" style="color:var(--safe)">${fmt(s.best)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>
+            <div class="st"><div class="k">平均</div><div class="v">${fmt(s.avg)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>
+            <div class="st"><div class="k">${s.rate!=null?"達成":"記録"}</div><div class="v" style="color:var(--sub)">${s.rate!=null?`${s.inZone}/${s.n}`:`${s.n}日`}</div></div>
+          </div>
+          <div class="note" style="margin-top:7px;font-size:11px">Day ${s.bestDay} が最高${s.n>1?`／最下位は ${fmt(s.worst)}位`:""}</div>
+        </div>`).join("") + `</div>`;
+      }
+    }else{
+      const my = mySeries(b);
+      const last = my.length ? my[my.length-1].v : null;
+      const avgSpd = avgSpeedOf(my), maxSpd = maxSpeedOf(my);
+      const ranks = recs.map(r=>numOrNull(r.myRank)).filter(v=>v!=null);
+      const tRank = targetRankOf(e, b);
+      const bd = tRank!=null ? borderSeries(b, tRank) : [];
+      const bdLast = bd.length ? bd[bd.length-1].v : null;
+      html += `<div class="rv-g">
+        <div class="st"><div class="k">最終${esc(pn)}</div><div class="v">${fmt(last)}</div></div>
+        <div class="st"><div class="k">平均ペース</div><div class="v">${fmt(avgSpd)}<span class="u">/h</span></div></div>
+        ${maxSpd!=null?`<div class="st"><div class="k">最高ペース</div><div class="v">${fmt(maxSpd)}<span class="u">/h</span></div></div>`:""}
+        ${ranks.length?`<div class="st"><div class="k">最高順位</div><div class="v">${fmt(Math.min(...ranks))}<span class="u">位</span></div></div>`:""}
+        ${b.kind==="goal" && numOrNull(b.goalPoints)!=null
+          ? `<div class="st"><div class="k">目標</div><div class="v">${fmt(b.goalPoints)}</div></div>` : ""}
+        ${bdLast!=null?`<div class="st"><div class="k">${tRank}位ボーダー（最終記録）</div><div class="v">${fmt(bdLast)}</div></div>`:""}
+        <div class="st"><div class="k">記録回数</div><div class="v">${recs.length}<span class="u">回</span></div></div>
+      </div>`;
+    }
+    html += `</div>`;
+  });
+  html += `</div>`;
+
+  /* ---- 投じた資源 ---- */
+  const res = reviewResourceDelta(e);
+  html += `<div class="card"><h3>投じた資源</h3>`;
+  if(res.rows.length){
+    html += `<div class="rv-g">` + res.rows.map(r=>`
+      <div class="st"><div class="k">${r.label}</div>
+        <div class="v" style="color:${r.used>0?"var(--me)":"var(--sub)"}">${r.used>0?"−":""}${fmt(Math.abs(r.used))}</div>
+        <div class="k" style="margin-top:4px">${fmt(r.first)} → ${fmt(r.last)}</div></div>`).join("") + `</div>`;
+    if(res.tokko) html += `<div class="note">特効：${esc(res.tokko.first)}${res.tokko.last!==res.tokko.first?` → ${esc(res.tokko.last)}`:""}</div>`;
+  }else{
+    html += `<div class="note" style="margin-top:0">資源の記録が${res.nRes}回のため、消費量を計算できませんでした。次回は<b>開始時と終了時の2回</b>だけ資源を記録すると、このイベントに投じたコストが出ます。</div>`;
+  }
+  html += `</div>`;
+
+  if(e.memo) html += `<div class="card"><h3>イベントメモ</h3><div class="note" style="margin-top:0;white-space:pre-wrap">${esc(e.memo)}</div></div>`;
+
+  html += `<button class="btn ghost" onclick="duplicateEvent('${e.id}')">この設定で次回イベントを作る</button>`;
+  $("tab-dash").innerHTML = html;
+}
 function renderDash(){
   const e=ev(), b=board();
+  if(e && e.status==="done"){ renderReview(e); return; }
   if(b && b.kind==="daily"){ renderDashDaily(e, b); return; }
   const c=calc(e,b);
   const pn = e.pointName || "Pt";
@@ -2054,8 +2213,8 @@ function saveLapSettings(){
 }
 
 /* ---------- イベント複製 ---------- */
-function duplicateEvent(){
-  const src = db.events.find(x=>x.id===state.editEvId); if(!src) return;
+function duplicateEvent(id){
+  const src = db.events.find(x=>x.id===(id || state.editEvId)); if(!src) return;
   const dur = (src.start && src.end && src.end>src.start) ? src.end-src.start : 7*24*3600000;
   const now = Date.now();
   const cp = {
