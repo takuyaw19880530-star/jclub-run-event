@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260824.1";
+window.__BUILD__ = "20260824.2";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -327,6 +327,8 @@ select{appearance:none;-webkit-appearance:none;
 .sumrow{border-top:1px solid var(--line);padding:12px 2px 13px}
 .sumrow .shead{display:flex;align-items:baseline;gap:8px;margin-bottom:9px}
 .sumrow .sn{flex:1;min-width:0;font-weight:700;font-size:14px;line-height:1.35;word-break:break-word}
+.sumrow .subs{display:block;font-size:11px;color:var(--faint);font-weight:400;margin-top:3px;line-height:1.5}
+.sumrow .subs .cnt{color:var(--sub);margin-left:2px}
 .sumrow .goal{flex:0 0 auto;font-size:11px;color:var(--faint);font-family:var(--mono)}
 .sumrow .past{flex:0 0 auto;font-size:10px;color:var(--faint);border:1px solid var(--line);
   border-radius:99px;padding:1px 7px}
@@ -1263,10 +1265,16 @@ function slotStats(e, b){
     if(!days.length) return null;
     const ranks = days.map(k=>perDay[k].rank);
     const scores = days.map(k=>perDay[k].score).filter(v=>v!=null);
+    /* 走った内容（種目）を回数付きで集計 */
+    const subCount = {};
+    days.forEach(k=>{ const s=(perDay[k].sub||"").trim(); if(s) subCount[s]=(subCount[s]||0)+1; });
+    const subs = Object.entries(subCount).sort((a,b)=>b[1]-a[1])
+      .map(([name,n])=>({name, n}));
     const z = zoneOfSlot(b, nm, nameIdx[nm] ?? 0);
     const inZone = z!=null ? ranks.filter(r=>r<=z).length : null;
     const bestDay = days.reduce((p,k)=>perDay[k].rank < perDay[p].rank ? k : p, days[0]);
-    return {name:nm, zone:z, active: current.includes(nm), n:days.length,
+    return {name:nm, zone:z, active: current.includes(nm), n:days.length, subs,
+      bestSub: (perDay[bestDay].sub||"").trim(),
       best:Math.min(...ranks), bestDay: bestDay+1,
       avg: ranks.reduce((p,x)=>p+x,0)/ranks.length,
       worst: Math.max(...ranks),
@@ -1327,7 +1335,7 @@ function renderDashDaily(e, b){
       html += `<div class="card"><h3>枠別サマリー（次回の枠選び用）</h3>` +
         stats.map(s=>`<div class="sumrow" style="${s.active?"":"opacity:.55"}">
           <div class="shead">
-            <span class="sn">${esc(s.name)}</span>
+            <span class="sn">${esc(s.name)}${s.subs.length?`<span class="subs">${s.subs.map(x=>esc(x.name)+(x.n>1?`<span class="cnt">×${x.n}</span>`:"")).join("　")}</span>`:""}</span>
             ${s.zone!=null?`<span class="goal">目標 ${fmt(s.zone)}位</span>`:""}
             ${s.active?"":'<span class="past">過去</span>'}
           </div>
@@ -1463,14 +1471,14 @@ function renderReview(e){
       if(stats.length){
         const sorted = [...stats].sort((x,y)=>x.avg-y.avg);
         html += `<div style="margin-top:11px">` + sorted.map(s=>`<div class="sumrow">
-          <div class="shead"><span class="sn">${esc(s.name)}</span>
+          <div class="shead"><span class="sn">${esc(s.name)}${s.subs.length?`<span class="subs">${s.subs.map(x=>esc(x.name)+(s.n>1&&x.n>0?`<span class="cnt">×${x.n}</span>`:"")).join("　")}</span>`:""}</span>
             ${s.zone!=null?`<span class="goal">目標 ${fmt(s.zone)}位</span>`:""}</div>
           <div class="stats">
             <div class="st"><div class="k">最高</div><div class="v" style="color:var(--safe)">${fmt(s.best)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>
             <div class="st"><div class="k">平均</div><div class="v">${fmt(s.avg)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>
             <div class="st"><div class="k">${s.rate!=null?"達成":"記録"}</div><div class="v" style="color:var(--sub)">${s.rate!=null?`${s.inZone}/${s.n}`:`${s.n}日`}</div></div>
           </div>
-          <div class="note" style="margin-top:7px;font-size:11px">Day ${s.bestDay} が最高${s.n>1?`／最下位は ${fmt(s.worst)}位`:""}</div>
+          <div class="note" style="margin-top:7px;font-size:11px">Day ${s.bestDay}${s.bestSub?`（${esc(s.bestSub)}）`:""} が最高${s.n>1?`／最下位は ${fmt(s.worst)}位`:""}</div>
         </div>`).join("") + `</div>`;
       }
     }else{
