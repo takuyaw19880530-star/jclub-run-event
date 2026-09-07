@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260824.2";
+window.__BUILD__ = "20260907.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -209,6 +209,13 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .rec .memo{font-size:11px;color:var(--sub);margin-top:5px}
 
 /* ===== グラフ ===== */
+.rankbar{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:1px 1px 11px;scrollbar-width:none}
+.rankbar::-webkit-scrollbar{display:none}
+.rankbar button{flex:0 0 auto;font-size:12px;font-weight:600;padding:7px 13px;border-radius:99px;
+  border:1px solid var(--line);background:var(--panel);color:var(--sub);white-space:nowrap}
+.rankbar button.on{border-color:var(--border-c);color:var(--border-c);background:rgba(76,132,238,.10)}
+.rankbar button.tgt::after{content:"◎";margin-left:4px;font-size:10px;opacity:.8}
 .chart-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
   padding:12px 8px 6px;margin-bottom:12px}
 canvas{display:block;width:100%;touch-action:manipulation}
@@ -393,10 +400,11 @@ select{appearance:none;-webkit-appearance:none;
     <div id="tab-dash"></div>
     <div id="tab-recs" class="hidden"></div>
     <div id="tab-chart" class="hidden">
+      <div id="chart-ranks" class="rankbar"></div>
       <div class="chart-box"><canvas id="chart" height="300"></canvas>
         <div class="legend">
           <span><i style="background:var(--me)"></i>自分</span>
-          <span><i style="background:var(--border-c)"></i>ボーダー</span>
+          <span><i style="background:var(--border-c)"></i><span id="lg-bd">ボーダー</span></span>
           <span><i style="background:var(--border-c);opacity:.5"></i>線形予測</span>
           <span><i style="background:var(--gold)"></i>実績カーブ予測</span>
           <span><i style="background:var(--warn)"></i>安全ライン</span>
@@ -702,7 +710,7 @@ const state = {
   evId:null, boardId:null,
   tab:"dash",
   editRecId:null, editBoardMode:null, /* 'new' | boardId */
-  chartSel:null,
+  chartSel:null, chartRank:null,
   learnType:"all",
   simD:50, simV:"",
 };
@@ -1063,9 +1071,9 @@ function calcGoal(e, b){
           linPred:null, curve:null, pred, predSrc:null,
           predMy, bonusRemain, bonusDays, safety, need, needSpd, status};
 }
-function calc(e, b){
+function calc(e, b, rankOverride){
   if(b && b.kind==="goal") return calcGoal(e, b);
-  const tRank = targetRankOf(e, b);
+  const tRank = rankOverride!=null ? rankOverride : targetRankOf(e, b);
   const my = mySeries(b);
   const bd = tRank!=null ? borderSeries(b, tRank) : [];
   const myLast = my.length ? my[my.length-1].v : null;
@@ -1208,6 +1216,7 @@ function setTab(t){
   renderEvent();
 }
 function setBoard(id){
+  state.chartRank = null;
   state.boardId=id; state.chartSel=null;
   renderEvent();
 }
@@ -1232,7 +1241,7 @@ function renderEvent(){
   $("ev-fab").textContent = state.tab==="rw" ? "＋ 報酬" : "＋ 記録";
   if(state.tab==="dash") renderDash();
   if(state.tab==="recs") renderRecs();
-  if(state.tab==="chart"){ renderChart(); }
+  if(state.tab==="chart"){ renderRankBar(); renderChart(); }
   if(state.tab==="rw") renderRewards();
 }
 
@@ -1898,9 +1907,46 @@ function removeReward(id){
 /* =====================================================
    グラフ（canvas・依存なし）
 ===================================================== */
+function chartRankOf(e, b){
+  /* グラフタブで表示中の順位。未選択なら目標順位 */
+  const ranks = (b.borderRanks||[]);
+  const sel = state.chartRank;
+  if(sel!=null && ranks.includes(sel)) return sel;
+  const t = targetRankOf(e, b);
+  if(t!=null && ranks.includes(t)) return t;
+  return t!=null ? t : (ranks[0] ?? null);
+}
+function setChartRank(r){
+  state.chartRank = r;
+  renderChart();
+  renderRankBar();
+}
+function renderRankBar(){
+  const bar = $("chart-ranks");
+  const e=ev(), b=board();
+  if(!e || !b || b.kind==="goal" || !(b.borderRanks||[]).length){
+    bar.innerHTML = ""; bar.style.display = "none"; return;
+  }
+  bar.style.display = "flex";
+  const cur = chartRankOf(e, b);
+  const tgt = targetRankOf(e, b);
+  /* 記録のあるボーダーを優先して並べる */
+  const has = r => borderSeries(b, r).length > 0;
+  bar.innerHTML = (b.borderRanks||[]).map(r=>
+    `<button class="${r===cur?"on":""} ${r===tgt?"tgt":""}" onclick="setChartRank(${r})"
+      ${has(r)?"":'style="opacity:.45"'}>${fmt(r)}位</button>`).join("");
+  const lg = $("lg-bd");
+  if(lg) lg.textContent = cur!=null ? `${fmt(cur)}位ボーダー` : "ボーダー";
+  const tip = $("chart-tip");
+  if(tip && !state.chartSel){
+    tip.innerHTML = cur!=null && tgt!=null && cur!==tgt
+      ? `${fmt(cur)}位で表示中（目標は ${fmt(tgt)}位 ◎）。点をタップすると詳細が出ます。`
+      : "グラフ上の点をタップすると詳細を表示します。";
+  }
+}
 function renderChart(){
   const cv = $("chart");
-  const e=ev(), b=board(); let c=calc(e,b);
+  const e=ev(), b=board(); let c=calc(e,b, chartRankOf(e,b));
   let dayBounds = null;
   if(b.kind==="daily"){
     const tk = todayKeyOf(e, b);
@@ -2047,7 +2093,7 @@ $("chart").addEventListener("click", evn=>{
   });
   if(best && bestD<28){
     state.chartSel=best;
-    $("chart-tip").innerHTML = `<b>${fmtDT(best.ts)}</b>　${best.who}：<b>${fmt(best.v)}</b>`;
+    $("chart-tip").innerHTML = `<b>${fmtDT(best.ts)}</b>　${esc(best.who)}：<b>${fmt(best.v)}</b>`;
     renderChart();
   }
 });
