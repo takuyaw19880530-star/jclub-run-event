@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260907.1";
+window.__BUILD__ = "20260907.2";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -160,8 +160,13 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .pb-side.me .who{color:var(--me)}
 .pb-side.bd .who{color:var(--border-c)}
 .pb-side .pt{font-family:var(--mono);font-variant-numeric:tabular-nums;
-  font-size:clamp(21px,7.4vw,30px);font-weight:700;letter-spacing:-.02em;line-height:1.15;
-  word-break:break-all}
+  font-weight:700;letter-spacing:-.03em;line-height:1.12;
+  white-space:nowrap;overflow:hidden}
+.pb-side .pt.d7{font-size:clamp(19px,6.4vw,26px)}
+.pb-side .pt.d8{font-size:clamp(17px,5.7vw,23px)}
+.pb-side .pt.d9{font-size:clamp(15px,5.0vw,20px)}
+.pb-side .pt.d10{font-size:clamp(13px,4.4vw,18px)}
+.pb-side .pt.dS{font-size:clamp(21px,7.4vw,30px)}
 .pb-side .lb{font-size:10px;color:var(--faint);margin-top:3px}
 .pb-diff{
   text-align:center;margin-top:12px;padding-top:11px;border-top:1px solid var(--line);
@@ -293,6 +298,10 @@ textarea{min-height:64px;resize:vertical}
   font-size:14px;border-radius:10px;padding:12px 16px;white-space:nowrap}
 .quick .go:active{opacity:.85}
 .quick .hint{font-size:10px;color:var(--faint);margin-top:8px;line-height:1.6}
+.qmore{display:flex;gap:8px;margin-top:9px}
+.qmore .f{flex:1;min-width:0}
+.qmore label{margin:0 0 4px;font-size:10px;color:var(--faint)}
+.qmore input{padding:9px 10px;font-size:15px;font-family:var(--mono);text-align:right}
 select{appearance:none;-webkit-appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--sub) 50%),linear-gradient(135deg,var(--sub) 50%,transparent 50%);
   background-position:calc(100% - 16px) 55%,calc(100% - 11px) 55%;
@@ -1230,7 +1239,10 @@ function renderEvent(){
   /* ボードバー */
   const bb = $("board-bar");
   const reviewing = e.status==="done" && state.tab==="dash";
-  bb.style.display = (state.tab==="rw" || reviewing) ? "none" : "flex";
+  /* ボードは複数集計があるイベント（マスメディア）向けの概念。
+     それ以外で1枚しかない場合はバー自体を出さない */
+  const multiBoard = e.type==="media" || (e.boards||[]).length>1;
+  bb.style.display = (state.tab==="rw" || reviewing || !multiBoard) ? "none" : "flex";
   const KIND_MARK = {goal:"🎯", daily:"📅"};
   bb.innerHTML = e.boards.map(x=>{
     const on = x.id===board().id;
@@ -1246,6 +1258,18 @@ function renderEvent(){
 }
 
 /* ---------- 状況タブ ---------- */
+function ptCls(...vals){
+  /* 表示する数値の最大桁数に応じてフォントサイズ階級を返す（億単位でも折り返さない） */
+  const n = Math.max(0, ...vals.map(v=>{
+    const x = numOrNull(v);
+    return x==null ? 0 : Math.abs(Math.round(x)).toLocaleString("ja-JP").length;
+  }));
+  if(n>=14) return "d10";
+  if(n>=12) return "d9";
+  if(n>=10) return "d8";
+  if(n>=8)  return "d7";
+  return "dS";
+}
 function slotStats(e, b){
   /* 枠名ごとに日別の最終記録を集計（枠を入れ替えても混ざらないよう名前で束ねる） */
   const recs = sortedRecords(b);
@@ -1321,9 +1345,9 @@ function renderDashDaily(e, b){
   let html = quickBarHtml(e, b, null) + `<div class="paceboard">
     <div class="pb-status"><span class="st ${stCls}">本日 ${STATUS_TEXT[status]}</span></div>
     <div class="pb-grid">
-      <div class="pb-side me"><div class="who">自分（本日）</div><div class="pt">${fmt(myLast)}</div>
+      <div class="pb-side me"><div class="who">自分（本日）</div><div class="pt ${ptCls(myLast, bdLast)}">${fmt(myLast)}</div>
         <div class="lb">${esc(pn)}${mySpd!=null?` ／ 時速 ${fmt(mySpd)}`:""}</div></div>
-      <div class="pb-side bd"><div class="who">本日ボーダー ${tRank??"—"}位</div><div class="pt">${fmt(bdLast)}</div>
+      <div class="pb-side bd"><div class="who">本日ボーダー ${tRank??"—"}位</div><div class="pt ${ptCls(myLast, bdLast)}">${fmt(bdLast)}</div>
         <div class="lb">${esc(pn)}${bdSpd!=null?` ／ 時速 ${fmt(bdSpd)}`:""}</div></div>
     </div>
     <div class="pb-diff">Day ${todayKey+1}　・　日次リセットまで ${hoursToText(rhD)}　・　本日の記録 ${today.length}件</div>
@@ -1551,12 +1575,12 @@ function renderDash(){
     <div class="pb-grid">
       <div class="pb-side me">
         <div class="who">自分 ME</div>
-        <div class="pt">${fmt(c.myLast)}</div>
+        <div class="pt ${ptCls(c.myLast, c.bdLast)}">${fmt(c.myLast)}</div>
         <div class="lb">${esc(pn)}${c.mySpd!=null?` ／ 時速 ${fmt(c.mySpd)}`:""}</div>
       </div>
       <div class="pb-side bd">
         <div class="who">${c.goalMode?"目標 GOAL":`ボーダー ${c.tRank??"—"}位`}</div>
-        <div class="pt">${fmt(c.bdLast)}</div>
+        <div class="pt ${ptCls(c.myLast, c.bdLast)}">${fmt(c.bdLast)}</div>
         <div class="lb">${esc(pn)}${c.bdSpd!=null?` ／ 時速 ${fmt(c.bdSpd)}`:""}</div>
       </div>
     </div>
@@ -2002,12 +2026,36 @@ function renderChart(){
     ctx.textAlign = "right";
     ctx.fillText(shortNum(v), padL-6, y+3);
   }
-  /* X軸ラベル（開始・中間・終了） */
-  ctx.textAlign="center";
-  [t0,(t0+t1)/2,t1].forEach(t=>{
-    const d=new Date(t);
-    ctx.fillText(`${d.getMonth()+1}/${d.getDate()}`, Math.min(Math.max(X(t),padL+12),W-padR-12), H-8);
-  });
+  /* X軸：日付の境界に縦線とラベル（1日ごと。長期間なら間引く） */
+  {
+    const spanD = (t1-t0)/86400000;
+    const step = spanD<=8 ? 1 : spanD<=16 ? 2 : Math.ceil(spanD/8);
+    const d0 = new Date(t0); d0.setHours(0,0,0,0);
+    let t = d0.getTime();
+    if(t < t0) t += 86400000;
+    ctx.textAlign="center";
+    let i = 0;
+    for(; t<=t1; t+=86400000, i++){
+      const x = X(t);
+      if(x < padL-1 || x > W-padR+1) continue;
+      const show = (i % step)===0;
+      ctx.strokeStyle = show ? "#243356" : "#1A2440";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke();
+      if(show){
+        const dd=new Date(t);
+        ctx.fillStyle="#6C7B9C";
+        ctx.fillText(`${dd.getMonth()+1}/${dd.getDate()}`, Math.min(Math.max(x,padL+12),W-padR-12), H-8);
+      }
+    }
+    /* 開始・終了は必ずラベル */
+    ctx.fillStyle="#6C7B9C";
+    [[t0,"left"],[t1,"right"]].forEach(([tt,al])=>{
+      const dd=new Date(tt);
+      ctx.textAlign = al==="left" ? "left" : "right";
+      ctx.fillText(`${dd.getMonth()+1}/${dd.getDate()}`, al==="left"?padL:W-padR, H-8);
+    });
+  }
 
   /* --- イベント終了線 --- */
   if(e.end && e.end<=t1 && e.end>=t0){
@@ -2055,13 +2103,19 @@ function renderChart(){
   drawLine(ctx, c.bd, X, Y, "#4C84EE");
   drawLine(ctx, c.my, X, Y, "#E0424D");
 
-  /* --- タップ選択ハイライト --- */
+  /* --- タップ選択ハイライト（縦線＋その時刻の全系列に丸） --- */
   if(state.chartSel){
     const p = state.chartSel;
+    const sx = X(p.ts);
     ctx.strokeStyle="rgba(233,238,247,.7)"; ctx.lineWidth=1; ctx.setLineDash([2,3]);
-    ctx.beginPath(); ctx.moveTo(X(p.ts),padT); ctx.lineTo(X(p.ts),H-padB); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx,padT); ctx.lineTo(sx,H-padB); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.beginPath(); ctx.arc(X(p.ts),Y(p.v),6,0,7); ctx.strokeStyle=p.color; ctx.lineWidth=2; ctx.stroke();
+    const marks = p.multi && p.multi.length ? p.multi : [p];
+    marks.forEach(m=>{
+      if(m.v==null) return;
+      ctx.beginPath(); ctx.arc(X(m.ts),Y(m.v),6,0,7);
+      ctx.strokeStyle=m.color||"#E9EEF7"; ctx.lineWidth=2; ctx.stroke();
+    });
   }
   state.chartGeo = {X,Y,t0,t1,v0,v1,series:[
     ...c.my.map(p=>({...p,color:"#E0424D",who:"自分"})),
@@ -2082,21 +2136,37 @@ function shortNum(v){
   if(v>=1e4) return (v/1e4).toFixed(v>=1e6?0:1)+"万";
   return Math.round(v).toString();
 }
-$("chart").addEventListener("click", evn=>{
+function chartPickAt(clientX, target){
   const g = state.chartGeo; if(!g||!g.series.length) return;
-  const rect = evn.target.getBoundingClientRect();
-  const x = evn.clientX-rect.left, y = evn.clientY-rect.top;
-  let best=null, bestD=1e9;
+  const rect = target.getBoundingClientRect();
+  const x = clientX-rect.left;
+  /* 横位置だけで最も近い時刻を選ぶ（縦はどこをタップしてもよい） */
+  let bestTs=null, bestD=1e9;
   g.series.forEach(p=>{
-    const d = Math.hypot(g.X(p.ts)-x, g.Y(p.v)-y);
-    if(d<bestD){bestD=d;best=p;}
+    const d = Math.abs(g.X(p.ts)-x);
+    if(d<bestD){bestD=d;bestTs=p.ts;}
   });
-  if(best && bestD<28){
-    state.chartSel=best;
-    $("chart-tip").innerHTML = `<b>${fmtDT(best.ts)}</b>　${esc(best.who)}：<b>${fmt(best.v)}</b>`;
-    renderChart();
+  if(bestTs==null) return;
+  /* 同時刻（±3分）の全系列をまとめて表示 */
+  const hits = g.series.filter(p=>Math.abs(p.ts-bestTs)<=180000);
+  state.chartSel = {ts:bestTs, multi:hits};
+  const rows = hits.map(p=>`<span style="color:${p.color}">${esc(p.who)}</span> <b>${fmt(p.v)}</b>`).join("　／　");
+  let diff = "";
+  const me = hits.find(p=>p.who==="自分"), bd = hits.find(p=>p.who!=="自分");
+  if(me && bd){
+    const d = me.v-bd.v;
+    diff = `<br><span style="color:${d>=0?"var(--safe)":"var(--danger)"}">差 ${d>=0?"+":""}${fmt(d)}</span>`;
   }
-});
+  $("chart-tip").innerHTML = `<b>${fmtDT(bestTs)}</b><br>${rows}${diff}`;
+  renderChart();
+}
+$("chart").addEventListener("click", evn=>{ chartPickAt(evn.clientX, evn.target); });
+$("chart").addEventListener("touchmove", evn=>{
+  if(evn.touches && evn.touches.length===1){
+    chartPickAt(evn.touches[0].clientX, evn.target);
+    evn.preventDefault();
+  }
+}, {passive:false});
 
 /* =====================================================
    モーダル共通
@@ -2168,7 +2238,7 @@ function saveEvent(){
       ? [{id:uid(), name:"メディアコイン", kind:"goal", goalPoints:null, dailyBonus:null, targetRank:null, borderRanks:[], records:[]},
          {id:uid(), name:"デイリー", kind:"daily", dailyResetHour:14, targetRank:100, borderRanks:[10,50,100,500],
           slots:[{name:"メインホール",zone:null},{name:"枠2",zone:null},{name:"枠3",zone:null}], records:[]}]
-      : [{id:uid(), name:"メイン", kind:"border", targetRank:null, borderRanks:[...DEFAULT_RANKS], records:[]}];
+      : [{id:uid(), name:"ランキング", kind:"border", targetRank:null, borderRanks:[...DEFAULT_RANKS], records:[]}];
     const e = {id:uid(), ...data,
       boards: defBoards,
       rewards:[]};
@@ -2413,8 +2483,25 @@ function quickBarHtml(e, b, c){
     second = `<div class="f"><label>${tRank??"—"}位ボーダー</label>
       <input type="number" inputmode="numeric" id="q-bd" placeholder="${s.length?`前回 ${fmt(s[s.length-1].v)}`:"—"}"></div>`;
   }
-  const label = isGoal ? "いまの累計を1タップで記録"
-              : isDaily ? "いまの順位を1タップで記録" : "いまの状況を1タップで記録";
+  const label = isGoal ? "いまの累計を1タップで記録" : "いまの状況を1タップで記録";
+  /* 目標順位の前後のボーダーも、その場で入れられるようにする */
+  let extra = "";
+  if(!isGoal && !isDaily && tRank!=null){
+    const ranks = (b.borderRanks||[]).filter(r=>r!==tRank).sort((a,x)=>a-x);
+    const idx = (b.borderRanks||[]).slice().sort((a,x)=>a-x).indexOf(tRank);
+    const all = (b.borderRanks||[]).slice().sort((a,x)=>a-x);
+    const around = [all[idx-1], all[idx+1]].filter(r=>r!=null);
+    if(around.length){
+      extra = `<div class="qmore" id="q-more">
+        ${around.map(r=>{
+          const sr = borderSeries(b, r);
+          return `<div class="f"><label>${fmt(r)}位</label>
+            <input type="number" inputmode="numeric" id="q-bd-${r}" data-rank="${r}"
+              placeholder="${sr.length?fmt(sr[sr.length-1].v):"—"}"></div>`;
+        }).join("")}
+      </div>`;
+    }
+  }
   return `<div class="quick">
     <h3>${label}<span>日時は自動</span></h3>
     <div class="row">
@@ -2423,7 +2510,8 @@ function quickBarHtml(e, b, c){
       ${second}
       <button class="go" onclick="quickSave()">記録</button>
     </div>
-    <div class="hint">資源・メモ・他の順位も入れたいときは、下の「くわしく記録」から。</div>
+    ${extra}
+    <div class="hint">${extra?"上下の順位も入れておくと、グラフで比べられます。":"資源・メモ・他の順位も入れたいときは、下の「くわしく記録」から。"}</div>
   </div>`;
 }
 function quickSave(){
@@ -2448,10 +2536,18 @@ function quickSave(){
   }
   const my = numOrNull(($("q-my")||{}).value);
   const bd = numOrNull(($("q-bd")||{}).value);
-  if(my==null && bd==null){ alert("数字を入力してから「記録」を押してください。"); return; }
+  const extras = {};
+  (b.borderRanks||[]).forEach(r=>{
+    const v = numOrNull(($("q-bd-"+r)||{}).value);
+    if(v!=null) extras[r] = v;
+  });
+  if(my==null && bd==null && !Object.keys(extras).length){
+    alert("数字を入力してから「記録」を押してください。"); return;
+  }
   const rec = {id:uid(), ts:Date.now(), myPoints:my, myRank:null, borders:{}, memo:""};
   const tRank = targetRankOf(e, b);
   if(bd!=null && tRank!=null) rec.borders[tRank] = bd;
+  Object.entries(extras).forEach(([r,v])=>{ rec.borders[r] = v; });
   b.records.push(rec);
   saveDB(); renderEvent(); toast("記録しました");
 }
