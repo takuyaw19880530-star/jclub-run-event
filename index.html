@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260907.2";
+window.__BUILD__ = "20260907.5";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -410,6 +410,10 @@ select{appearance:none;-webkit-appearance:none;
     <div id="tab-recs" class="hidden"></div>
     <div id="tab-chart" class="hidden">
       <div id="chart-ranks" class="rankbar"></div>
+      <div class="rankbar" id="chart-modes">
+        <button id="cm-line" onclick="setChartMode('line')">推移</button>
+        <button id="cm-diff" onclick="setChartMode('diff')">ボーダーとの差</button>
+      </div>
       <div class="chart-box"><canvas id="chart" height="300"></canvas>
         <div class="legend">
           <span><i style="background:var(--me)"></i>自分</span>
@@ -719,7 +723,7 @@ const state = {
   evId:null, boardId:null,
   tab:"dash",
   editRecId:null, editBoardMode:null, /* 'new' | boardId */
-  chartSel:null, chartRank:null,
+  chartSel:null, chartRank:null, chartMode:"line",
   learnType:"all",
   simD:50, simV:"",
 };
@@ -1306,7 +1310,10 @@ function slotStats(e, b){
     const z = zoneOfSlot(b, nm, nameIdx[nm] ?? 0);
     const inZone = z!=null ? ranks.filter(r=>r<=z).length : null;
     const bestDay = days.reduce((p,k)=>perDay[k].rank < perDay[p].rank ? k : p, days[0]);
-    return {name:nm, zone:z, active: current.includes(nm), n:days.length, subs,
+    /* 最高順位を出すのはメインホールだけ（開催内容が毎日変わるため、
+       「この日は当たった」という最高値に意味がある）。他の枠は平均で見る */
+    const varies = nm === "メインホール";
+    return {name:nm, zone:z, active: current.includes(nm), n:days.length, subs, varies,
       bestSub: (perDay[bestDay].sub||"").trim(),
       best:Math.min(...ranks), bestDay: bestDay+1,
       avg: ranks.reduce((p,x)=>p+x,0)/ranks.length,
@@ -1375,8 +1382,10 @@ function renderDashDaily(e, b){
           <div class="stats">
             <div class="st"><div class="k">${s.rate!=null?"達成":"記録"}</div>
               <div class="v" style="color:${s.rate!=null?(s.rate>=0.6?"var(--safe)":s.rate>0?"var(--warn)":"var(--danger)"):"var(--sub)"}">${s.rate!=null?`${s.inZone}/${s.n}`:`${s.n}日`}</div></div>
-            <div class="st"><div class="k">最高</div><div class="v">${fmt(s.best)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>
             <div class="st"><div class="k">平均</div><div class="v">${fmt(s.avg)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>
+            ${s.varies
+              ? `<div class="st"><div class="k">最高</div><div class="v">${fmt(s.best)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>`
+              : `<div class="st"><div class="k">ブレ幅</div><div class="v" style="font-size:14px">${fmt(s.best)}–${fmt(s.worst)}</div></div>`}
           </div>
         </div>`).join("") +
         `<div class="note">目標を設定した枠は「達成した日数／走った日数」を表示します。ランキングごとに報酬の段階が違うため、判定は自分で決めた目標を基準にしています。次回どの枠を選ぶかの判断材料になります。</div></div>`;
@@ -1461,19 +1470,54 @@ function renderReview(e){
     }
   }
   if(!headline){
-    /* 目標型がなければ、最良順位を見出しにする */
-    let best=null, bestName="";
-    (e.boards||[]).forEach(b=>{
-      if(b.kind==="daily"){
-        slotStats(e,b).forEach(s=>{ if(best==null || s.best<best){ best=s.best; bestName=s.name; } });
-      }else{
-        const rs = sortedRecords(b).map(r=>numOrNull(r.myRank)).filter(v=>v!=null);
-        if(rs.length){ const m=Math.min(...rs); if(best==null||m<best){best=m;bestName=b.name;} }
+    /* ランキング型：最後の記録＝最終結果を主役にする */
+    const rb = (e.boards||[]).find(b=>b.kind!=="daily" && b.kind!=="goal" && sortedRecords(b).length);
+    if(rb){
+      const recs = sortedRecords(rb);
+      const last = recs[recs.length-1];
+      const finalPt = numOrNull(last.myPoints);
+      const finalRank = numOrNull(last.myRank);
+      const tRank = targetRankOf(e, rb);
+      const bs = tRank!=null ? borderSeries(rb, tRank) : [];
+      const bdLast = bs.length ? bs[bs.length-1].v : null;
+      if(finalRank!=null){
+        headline = `<div class="big">${fmt(finalRank)}<span class="unit">位</span></div>`;
+        sub = `最終順位${finalPt!=null?`　／　${fmt(finalPt)} ${esc(pn)}`:""}`;
+      }else if(finalPt!=null){
+        headline = `<div class="big">${fmt(finalPt)}<span class="unit">${esc(pn)}</span></div>`;
+        sub = "最終ポイント";
       }
-    });
-    if(best!=null){
-      headline = `<div class="big">${fmt(best)}<span class="unit">位</span></div>`;
-      sub = `最高順位（${esc(bestName)}）`;
+      /* 目標順位のボーダーを超えられたかで判定 */
+      if(tRank!=null && finalPt!=null && bdLast!=null){
+        const ok = finalPt >= bdLast;
+        badgeText = ok ? `${fmt(tRank)}位以内` : `${fmt(tRank)}位に届かず`;
+        badgeCls = ok ? "s-safe" : "s-danger";
+        sub += `<br>${fmt(tRank)}位ボーダー ${fmt(bdLast)} に対して ${finalPt>=bdLast?"+":""}${fmt(finalPt-bdLast)}`;
+      }else if(finalRank!=null && tRank!=null){
+        const ok = finalRank <= tRank;
+        badgeText = ok ? `${fmt(tRank)}位以内` : `${fmt(tRank)}位に届かず`;
+        badgeCls = ok ? "s-safe" : "s-danger";
+      }
+    }
+    if(!headline){
+      /* 記録が順位のみのデイリー型しかない場合 */
+      /* 最高順位を見出しにできるのはメインホールだけ。
+         それ以外は平均順位のほうが実力を表すため、そちらを使う */
+      let best=null, bestName="", avg=null, avgName="";
+      (e.boards||[]).forEach(b=>{
+        if(b.kind!=="daily") return;
+        slotStats(e,b).forEach(s=>{
+          if(s.varies && (best==null || s.best<best)){ best=s.best; bestName=s.name; }
+          if(avg==null || s.avg<avg){ avg=s.avg; avgName=s.name; }
+        });
+      });
+      if(best!=null){
+        headline = `<div class="big">${fmt(best)}<span class="unit">位</span></div>`;
+        sub = `メインホールの最高順位`;
+      }else if(avg!=null){
+        headline = `<div class="big">${fmt(avg)}<span class="unit">位</span></div>`;
+        sub = `最も良かった枠の平均順位（${esc(avgName)}）`;
+      }
     }
   }
   html += `<div class="rv-head">
@@ -1507,29 +1551,33 @@ function renderReview(e){
           <div class="shead"><span class="sn">${esc(s.name)}${s.subs.length?`<span class="subs">${s.subs.map(x=>esc(x.name)+(s.n>1&&x.n>0?`<span class="cnt">×${x.n}</span>`:"")).join("　")}</span>`:""}</span>
             ${s.zone!=null?`<span class="goal">目標 ${fmt(s.zone)}位</span>`:""}</div>
           <div class="stats">
-            <div class="st"><div class="k">最高</div><div class="v" style="color:var(--safe)">${fmt(s.best)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>
             <div class="st"><div class="k">平均</div><div class="v">${fmt(s.avg)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>
+            ${s.varies
+              ? `<div class="st"><div class="k">最高</div><div class="v" style="color:var(--safe)">${fmt(s.best)}<span style="font-size:10px;color:var(--faint)">位</span></div></div>`
+              : `<div class="st"><div class="k">ブレ幅</div><div class="v" style="color:var(--sub)">${fmt(s.best)}–${fmt(s.worst)}</div></div>`}
             <div class="st"><div class="k">${s.rate!=null?"達成":"記録"}</div><div class="v" style="color:var(--sub)">${s.rate!=null?`${s.inZone}/${s.n}`:`${s.n}日`}</div></div>
           </div>
-          <div class="note" style="margin-top:7px;font-size:11px">Day ${s.bestDay}${s.bestSub?`（${esc(s.bestSub)}）`:""} が最高${s.n>1?`／最下位は ${fmt(s.worst)}位`:""}</div>
+          ${s.varies && s.n>1?`<div class="note" style="margin-top:7px;font-size:11px">Day ${s.bestDay}${s.bestSub?`（${esc(s.bestSub)}）`:""} が最高</div>`:""}
         </div>`).join("") + `</div>`;
       }
     }else{
       const my = mySeries(b);
       const last = my.length ? my[my.length-1].v : null;
       const avgSpd = avgSpeedOf(my), maxSpd = maxSpeedOf(my);
-      const ranks = recs.map(r=>numOrNull(r.myRank)).filter(v=>v!=null);
+      const lastRank = numOrNull(recs[recs.length-1].myRank);
       const tRank = targetRankOf(e, b);
       const bd = tRank!=null ? borderSeries(b, tRank) : [];
       const bdLast = bd.length ? bd[bd.length-1].v : null;
+      const margin = (last!=null && bdLast!=null) ? last-bdLast : null;
       html += `<div class="rv-g">
+        ${lastRank!=null?`<div class="st"><div class="k">最終順位</div><div class="v">${fmt(lastRank)}<span class="u">位</span></div></div>`:""}
         <div class="st"><div class="k">最終${esc(pn)}</div><div class="v">${fmt(last)}</div></div>
+        ${bdLast!=null?`<div class="st"><div class="k">${fmt(tRank)}位ボーダー（最終）</div><div class="v">${fmt(bdLast)}</div></div>`:""}
+        ${margin!=null?`<div class="st"><div class="k">ボーダーとの差</div><div class="v" style="color:${margin>=0?"var(--safe)":"var(--danger)"}">${margin>=0?"+":""}${fmt(margin)}</div></div>`:""}
         <div class="st"><div class="k">平均ペース</div><div class="v">${fmt(avgSpd)}<span class="u">/h</span></div></div>
         ${maxSpd!=null?`<div class="st"><div class="k">最高ペース</div><div class="v">${fmt(maxSpd)}<span class="u">/h</span></div></div>`:""}
-        ${ranks.length?`<div class="st"><div class="k">最高順位</div><div class="v">${fmt(Math.min(...ranks))}<span class="u">位</span></div></div>`:""}
         ${b.kind==="goal" && numOrNull(b.goalPoints)!=null
           ? `<div class="st"><div class="k">目標</div><div class="v">${fmt(b.goalPoints)}</div></div>` : ""}
-        ${bdLast!=null?`<div class="st"><div class="k">${tRank}位ボーダー（最終記録）</div><div class="v">${fmt(bdLast)}</div></div>`:""}
         <div class="st"><div class="k">記録回数</div><div class="v">${recs.length}<span class="u">回</span></div></div>
       </div>`;
     }
@@ -1543,8 +1591,9 @@ function renderReview(e){
   if(res.rows.length){
     html += `<div class="rv-g">` + res.rows.map(r=>`
       <div class="st"><div class="k">${r.label}</div>
-        <div class="v" style="color:${r.used>0?"var(--me)":"var(--sub)"}">${r.used>0?"−":""}${fmt(Math.abs(r.used))}</div>
-        <div class="k" style="margin-top:4px">${fmt(r.first)} → ${fmt(r.last)}</div></div>`).join("") + `</div>`;
+        <div class="v" style="color:${r.used>0?"var(--me)":r.used<0?"var(--safe)":"var(--sub)"}">${r.used>0?"−":r.used<0?"+":""}${fmt(Math.abs(r.used))}</div>
+        <div class="k" style="margin-top:4px">${fmt(r.first)} → ${fmt(r.last)}</div></div>`).join("") + `</div>
+      <div class="note">マイナスは消費、プラスは期間中に増えた分です（報酬などで増えると差し引きで増加になります）。</div>`;
     if(res.tokko) html += `<div class="note">特効：${esc(res.tokko.first)}${res.tokko.last!==res.tokko.first?` → ${esc(res.tokko.last)}`:""}</div>`;
   }else{
     html += `<div class="note" style="margin-top:0">資源の記録が${res.nRes}回のため、消費量を計算できませんでした。次回は<b>開始時と終了時の2回</b>だけ資源を記録すると、このイベントに投じたコストが出ます。</div>`;
@@ -1940,6 +1989,12 @@ function chartRankOf(e, b){
   if(t!=null && ranks.includes(t)) return t;
   return t!=null ? t : (ranks[0] ?? null);
 }
+function setChartMode(m){
+  state.chartMode = m;
+  state.chartSel = null;
+  renderChart();
+  renderRankBar();
+}
 function setChartRank(r){
   state.chartRank = r;
   renderChart();
@@ -1959,6 +2014,9 @@ function renderRankBar(){
   bar.innerHTML = (b.borderRanks||[]).map(r=>
     `<button class="${r===cur?"on":""} ${r===tgt?"tgt":""}" onclick="setChartRank(${r})"
       ${has(r)?"":'style="opacity:.45"'}>${fmt(r)}位</button>`).join("");
+  const cm = state.chartMode || "line";
+  $("cm-line").className = cm==="line" ? "on" : "";
+  $("cm-diff").className = cm==="diff" ? "on" : "";
   const lg = $("lg-bd");
   if(lg) lg.textContent = cur!=null ? `${fmt(cur)}位ボーダー` : "ボーダー";
   const tip = $("chart-tip");
@@ -1968,9 +2026,118 @@ function renderRankBar(){
       : "グラフ上の点をタップすると詳細を表示します。";
   }
 }
+function renderChartDiff(e, b, c){
+  /* 自分 − ボーダー の推移。終盤の僅差を見るためのモード */
+  const cv = $("chart");
+  const W = cv.clientWidth || (cv.parentElement.clientWidth-16);
+  const H = 300, dpr = window.devicePixelRatio || 1;
+  cv.width = W*dpr; cv.height = H*dpr; cv.style.height = H+"px";
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const padL=58, padR=14, padT=14, padB=26;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+
+  /* 同時刻ペアだけでなく、ボーダーを線形補間して差を出す */
+  const bd = c.bd;
+  const diffs = [];
+  if(bd.length>=1){
+    c.my.forEach(p=>{
+      let v=null;
+      if(p.ts<=bd[0].ts) v = bd[0].v;
+      else if(p.ts>=bd[bd.length-1].ts) v = bd[bd.length-1].v;
+      else{
+        for(let i=0;i<bd.length-1;i++){
+          if(p.ts>=bd[i].ts && p.ts<=bd[i+1].ts){
+            const r=(p.ts-bd[i].ts)/(bd[i+1].ts-bd[i].ts||1);
+            v = bd[i].v + (bd[i+1].v-bd[i].v)*r; break;
+          }
+        }
+      }
+      if(v!=null && p.ts>=bd[0].ts) diffs.push({ts:p.ts, v:p.v-v});
+    });
+  }
+  if(diffs.length<1){
+    ctx.fillStyle="#6C7B9C"; ctx.font="13px -apple-system,sans-serif"; ctx.textAlign="center";
+    ctx.fillText("自分とボーダーの記録が重なる期間がありません", W/2, H/2);
+    state.chartGeo=null; return;
+  }
+  let t0 = Math.min(...diffs.map(p=>p.ts)), t1 = Math.max(...diffs.map(p=>p.ts));
+  if(e.end && e.end>t1) t1 = e.end;
+  if(t1<=t0) t1 = t0+3600000;
+  const vs = diffs.map(p=>p.v);
+  let v0 = Math.min(0, ...vs), v1 = Math.max(0, ...vs);
+  const pad = Math.max(1,(v1-v0))*0.12; v0-=pad; v1+=pad;
+  const X = ts => padL + (ts-t0)/(t1-t0)*plotW;
+  const Y = v  => padT + (1-(v-v0)/(v1-v0))*plotH;
+
+  /* グリッド */
+  ctx.strokeStyle="#1D2942"; ctx.lineWidth=1;
+  ctx.fillStyle="#6C7B9C"; ctx.font="10px ui-monospace,monospace";
+  for(let i=0;i<=4;i++){
+    const v=v0+(v1-v0)*i/4, y=Y(v);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+    ctx.textAlign="right"; ctx.fillText((v>=0?"+":"−")+shortNum(Math.abs(v)), padL-6, y+3);
+  }
+  drawDayGrid(ctx, X, t0, t1, W, H, padL, padR, padT, padB);
+
+  /* ゼロライン＝ボーダー */
+  const zy = Y(0);
+  ctx.strokeStyle="#4C84EE"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(padL,zy); ctx.lineTo(W-padR,zy); ctx.stroke();
+  ctx.fillStyle="#4C84EE"; ctx.font="10px ui-monospace,monospace"; ctx.textAlign="left";
+  ctx.fillText("ボーダー", padL+4, zy-5);
+
+  /* 差の塗り分け */
+  ctx.beginPath();
+  diffs.forEach((p,i)=> i?ctx.lineTo(X(p.ts),Y(p.v)):ctx.moveTo(X(p.ts),Y(p.v)));
+  ctx.lineTo(X(diffs[diffs.length-1].ts), zy);
+  ctx.lineTo(X(diffs[0].ts), zy);
+  ctx.closePath();
+  const lastV = diffs[diffs.length-1].v;
+  ctx.fillStyle = lastV>=0 ? "rgba(61,190,123,.16)" : "rgba(232,93,93,.16)";
+  ctx.fill();
+
+  ctx.strokeStyle = lastV>=0 ? "#3DBE7B" : "#E85D5D"; ctx.lineWidth=2.2;
+  ctx.beginPath();
+  diffs.forEach((p,i)=> i?ctx.lineTo(X(p.ts),Y(p.v)):ctx.moveTo(X(p.ts),Y(p.v)));
+  ctx.stroke();
+  ctx.fillStyle = ctx.strokeStyle;
+  diffs.forEach(p=>{ ctx.beginPath(); ctx.arc(X(p.ts),Y(p.v),3.4,0,7); ctx.fill(); });
+
+  if(state.chartSel){
+    const sx=X(state.chartSel.ts);
+    ctx.strokeStyle="rgba(233,238,247,.7)"; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(sx,padT); ctx.lineTo(sx,H-padB); ctx.stroke(); ctx.setLineDash([]);
+  }
+  state.chartGeo = {X,Y,t0,t1,v0,v1,diff:true,
+    series: diffs.map(p=>({...p, color:(p.v>=0?"#3DBE7B":"#E85D5D"), who:"ボーダーとの差"}))};
+}
+function drawDayGrid(ctx, X, t0, t1, W, H, padL, padR, padT, padB){
+  const spanD=(t1-t0)/86400000;
+  const step = spanD<=8 ? 1 : spanD<=16 ? 2 : Math.ceil(spanD/8);
+  const d0=new Date(t0); d0.setHours(0,0,0,0);
+  let t=d0.getTime(); if(t<t0) t+=86400000;
+  ctx.textAlign="center";
+  let i=0, drawn=[];
+  for(; t<=t1; t+=86400000, i++){
+    const x=X(t);
+    if(x<padL-1||x>W-padR+1) continue;
+    const show=(i%step)===0;
+    ctx.strokeStyle = show ? "#243356" : "#1A2440"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke();
+    if(show){
+      const dd=new Date(t);
+      ctx.fillStyle="#6C7B9C";
+      ctx.fillText(`${dd.getMonth()+1}/${dd.getDate()}`, Math.min(Math.max(x,padL+12),W-padR-12), H-8);
+      drawn.push(x);
+    }
+  }
+  return drawn;
+}
 function renderChart(){
   const cv = $("chart");
   const e=ev(), b=board(); let c=calc(e,b, chartRankOf(e,b));
+  if(state.chartMode==="diff" && b.kind!=="goal"){ renderChartDiff(e,b,c); return; }
   let dayBounds = null;
   if(b.kind==="daily"){
     const tk = todayKeyOf(e, b);
@@ -2026,36 +2193,8 @@ function renderChart(){
     ctx.textAlign = "right";
     ctx.fillText(shortNum(v), padL-6, y+3);
   }
-  /* X軸：日付の境界に縦線とラベル（1日ごと。長期間なら間引く） */
-  {
-    const spanD = (t1-t0)/86400000;
-    const step = spanD<=8 ? 1 : spanD<=16 ? 2 : Math.ceil(spanD/8);
-    const d0 = new Date(t0); d0.setHours(0,0,0,0);
-    let t = d0.getTime();
-    if(t < t0) t += 86400000;
-    ctx.textAlign="center";
-    let i = 0;
-    for(; t<=t1; t+=86400000, i++){
-      const x = X(t);
-      if(x < padL-1 || x > W-padR+1) continue;
-      const show = (i % step)===0;
-      ctx.strokeStyle = show ? "#243356" : "#1A2440";
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke();
-      if(show){
-        const dd=new Date(t);
-        ctx.fillStyle="#6C7B9C";
-        ctx.fillText(`${dd.getMonth()+1}/${dd.getDate()}`, Math.min(Math.max(x,padL+12),W-padR-12), H-8);
-      }
-    }
-    /* 開始・終了は必ずラベル */
-    ctx.fillStyle="#6C7B9C";
-    [[t0,"left"],[t1,"right"]].forEach(([tt,al])=>{
-      const dd=new Date(tt);
-      ctx.textAlign = al==="left" ? "left" : "right";
-      ctx.fillText(`${dd.getMonth()+1}/${dd.getDate()}`, al==="left"?padL:W-padR, H-8);
-    });
-  }
+  /* X軸：日付の境界に縦線とラベル */
+  drawDayGrid(ctx, X, t0, t1, W, H, padL, padR, padT, padB);
 
   /* --- イベント終了線 --- */
   if(e.end && e.end<=t1 && e.end>=t0){
@@ -2091,11 +2230,12 @@ function renderChart(){
     }
     /* 安全ラインマーカー */
     if(c.safety!=null){
-      const x=X(e.end), y=Y(c.safety);
-      ctx.strokeStyle="#E8A33D"; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(x-9,y); ctx.lineTo(x+2,y); ctx.stroke();
-      ctx.fillStyle="#E8A33D"; ctx.font="9px ui-monospace,monospace"; ctx.textAlign="right";
-      ctx.fillText("安全", x-12, y+3);
+      const y=Y(c.safety);
+      ctx.strokeStyle="rgba(232,163,61,.65)"; ctx.lineWidth=1.4; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle="#E8A33D"; ctx.font="9px ui-monospace,monospace"; ctx.textAlign="left";
+      ctx.fillText("安全ライン", padL+4, y-5);
     }
   }
 
