@@ -11,7 +11,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260907.5";
+window.__BUILD__ = "20260909.2";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -135,6 +135,126 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .tabs button.on{color:var(--text);border-bottom-color:var(--me)}
 
 /* ===== ペースボード（シグネチャー） ===== */
+/* ---------- v2 記録タブ ---------- */
+.r2{display:block;width:100%;text-align:left;padding:13px 14px;
+  border-bottom:1px solid var(--line);background:none}
+.r2:active{background:var(--panel2)}
+.r2 .l1{display:flex;align-items:baseline;gap:10px}
+.r2 .ts{font-size:11px;color:var(--faint);flex:0 0 auto;width:88px;font-family:var(--mono)}
+.r2 .gain{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;
+  font-size:19px;letter-spacing:-.02em;flex:1;min-width:0}
+.r2 .gain.up{color:var(--me)} .r2 .gain.flat{color:var(--faint)}
+.r2 .spd{font-size:11px;color:var(--sub);font-family:var(--mono);flex:0 0 auto}
+.r2 .l2{display:flex;gap:12px;margin-top:5px;padding-left:98px;flex-wrap:wrap}
+.r2 .l2 span{font-size:11px;color:var(--faint);font-family:var(--mono)}
+.r2 .l2 b{color:var(--sub);font-weight:600}
+.r2 .l2 .bd{color:var(--border-c)}
+.r2 .memo{font-size:11.5px;color:var(--sub);margin-top:6px;padding-left:98px;line-height:1.6}
+.r2 .badge{font-size:10px;color:var(--faint);border:1px solid var(--line);
+  border-radius:99px;padding:1px 7px;margin-left:2px}
+.daysep{font-size:11px;color:var(--border-c);font-weight:700;letter-spacing:.05em;
+  padding:16px 14px 7px;background:var(--ink)}
+.reclist{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--panel)}
+.reclist .r2:last-child{border-bottom:none}
+
+/* ---------- v2 グラフ操作 ---------- */
+.ctlrow{display:flex;gap:8px;align-items:center;margin-bottom:11px}
+.ctlrow .scroll{display:flex;gap:7px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none;padding:1px}
+.ctlrow .scroll::-webkit-scrollbar{display:none}
+.ctlrow button{flex:0 0 auto;font-size:12px;font-weight:600;padding:7px 12px;border-radius:99px;
+  border:1px solid var(--line);background:var(--panel);color:var(--sub);white-space:nowrap}
+.ctlrow button.on{border-color:var(--border-c);color:var(--border-c);background:rgba(76,132,238,.10)}
+.ctlrow .seg{display:flex;gap:0;flex:0 0 auto;border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.ctlrow .seg button{border:none;border-radius:0;padding:7px 11px;font-size:11px}
+.ctlrow .seg button.on{background:rgba(76,132,238,.16);color:var(--border-c)}
+
+/* ---------- v2 ヒーロー ---------- */
+.v2hero{position:relative;border-radius:var(--radius);padding:18px 17px 8px;overflow:hidden;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line)}
+.v2hero .vd{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.v2hero .vd .dot{width:9px;height:9px;border-radius:50%;background:var(--acc)}
+.v2hero .vd .t{font-size:15px;font-weight:700;color:var(--acc)}
+.v2hero .vd .clock{margin-left:auto;font-size:12px;color:var(--sub)}
+.v2hero .vd .clock b{color:var(--text);font-family:var(--mono);font-weight:700}
+.v2hero .gapnum{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;
+  letter-spacing:-.035em;line-height:1;color:var(--acc);white-space:nowrap}
+.v2hero .gapnum.g7{font-size:clamp(32px,10.5vw,46px)}
+.v2hero .gapnum.g9{font-size:clamp(26px,8.6vw,38px)}
+.v2hero .gapnum.g11{font-size:clamp(22px,7.2vw,32px)}
+.v2hero .gapcap{font-size:12px;color:var(--sub);margin-top:8px}
+
+.trk{position:relative;height:104px;margin:16px -3px 0;touch-action:none}
+.trk .rail{position:absolute;left:12px;right:12px;top:48px;height:10px;border-radius:99px;background:#1B2740}
+.trk .band{position:absolute;top:48px;height:10px;background:rgba(216,178,74,.15)}
+.trk .fill{position:absolute;top:48px;height:10px;border-radius:99px;transition:all .32s cubic-bezier(.4,0,.2,1)}
+.trk .mk{position:absolute;transform:translateX(-50%);transition:left .32s cubic-bezier(.4,0,.2,1)}
+.trk .mk .stem{width:2px;border-radius:2px;margin:0 auto}
+.trk .mk .cap{font-size:9.5px;white-space:nowrap;text-align:center;font-weight:600}
+.trk .mk .val{font-family:var(--mono);font-size:10.5px;font-weight:700;white-space:nowrap;
+  text-align:center;opacity:0;transition:opacity .18s;font-variant-numeric:tabular-nums}
+.trk .mk.show .val{opacity:1}
+.trk .zero{top:34px} .trk .zero .stem{height:38px;background:var(--border-c)}
+.trk .zero .cap{color:var(--border-c);margin-top:4px} .trk .zero .val{color:var(--border-c)}
+.trk .sfty{top:34px} .trk .sfty .stem{height:38px;background:var(--gold)}
+.trk .sfty .cap{color:var(--gold);margin-top:4px} .trk .sfty .val{color:var(--gold)}
+.trk .me{top:40px}
+.trk .me .knob{width:26px;height:26px;border-radius:50%;background:var(--me);
+  border:4px solid var(--panel);margin:0 auto;box-shadow:0 4px 14px rgba(224,66,77,.4)}
+.trk .me .cap{color:var(--me);margin-top:3px} .trk .me .val{color:var(--me)}
+.trk .hint{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:10px;color:var(--faint)}
+
+.v2pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;
+  padding:14px 0 15px;border-top:1px solid var(--line)}
+.v2pair .c .k{font-size:10px;color:var(--faint);margin-bottom:3px}
+.v2pair .c .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;
+  letter-spacing:-.02em;white-space:nowrap}
+.v2pair .c .s{font-size:10px;color:var(--faint);margin-top:2px;font-family:var(--mono)}
+.v2pair .c.m .v{color:var(--me)} .v2pair .c.b .v{color:var(--border-c)}
+
+/* 行動カード */
+.v2act .need{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.v2act .need .n{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;
+  font-size:clamp(25px,8vw,34px);letter-spacing:-.03em;line-height:1}
+.v2act .need .u{font-size:13px;color:var(--sub)}
+.v2act .trans{margin-top:13px;padding-top:13px;border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.v2act .trans .i .k{font-size:10px;color:var(--faint)}
+.v2act .trans .i .v{font-family:var(--mono);font-weight:700;font-size:16px;letter-spacing:-.02em}
+.v2act .trans .i .v small{font-size:10px;color:var(--faint);margin-left:1px;font-weight:400}
+.spdrow{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.spdrow .lb{font-size:11px;color:var(--sub);width:64px;flex:0 0 auto}
+.spdrow .bar{flex:1;height:10px;border-radius:99px;background:#1B2740;overflow:hidden}
+.spdrow .bar i{display:block;height:100%;border-radius:99px}
+.spdrow .val{font-family:var(--mono);font-size:12px;font-weight:700;width:66px;text-align:right;
+  flex:0 0 auto;font-variant-numeric:tabular-nums}
+
+/* ---------- v2 ホーム ---------- */
+.livecard{display:block;width:100%;text-align:left;position:relative;overflow:hidden;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-radius:var(--radius);padding:16px 16px 15px;margin-bottom:12px}
+.livecard .top{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.livecard .top .dot{width:8px;height:8px;border-radius:50%;background:var(--acc)}
+.livecard .top .st{font-size:13px;font-weight:700;color:var(--acc)}
+.livecard .top .rest{margin-left:auto;font-size:11px;color:var(--sub)}
+.livecard .nm{font-size:15px;font-weight:700;line-height:1.35;margin-bottom:12px}
+.livecard .figs{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.livecard .figs .g{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;
+  letter-spacing:-.03em;color:var(--acc);line-height:1}
+.livecard .figs .g.s7{font-size:30px} .livecard .figs .g.s9{font-size:25px} .livecard .figs .g.s11{font-size:21px}
+.livecard .figs .gk{font-size:10px;color:var(--faint);margin-top:5px}
+.livecard .figs .need{text-align:right;font-size:11px;color:var(--sub)}
+.livecard .figs .need b{display:block;font-family:var(--mono);font-size:16px;color:var(--text);font-weight:700}
+.livecard .bar{margin-top:13px;height:6px;border-radius:99px;background:#1B2740;overflow:hidden;position:relative}
+.livecard .bar i{position:absolute;top:0;bottom:0;border-radius:99px;background:var(--acc);opacity:.75}
+.livecard .bar .sf{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--gold);opacity:.85}
+.livecard .warnrec{margin-top:11px;font-size:11px;color:var(--warn)}
+.donerow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+  padding:12px 14px;border-bottom:1px solid var(--line)}
+.donerow .nm{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub)}
+.donerow .rk{font-family:var(--mono);font-weight:700;font-size:15px;flex:0 0 auto}
+.donerow .dt{font-size:10px;color:var(--faint);flex:0 0 auto;width:44px;text-align:right}
+.sect{font-size:11px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:18px 2px 9px}
+
 .paceboard{
   background:linear-gradient(180deg,var(--panel2),var(--panel));
   border:1px solid var(--line);border-radius:var(--radius);
@@ -382,9 +502,9 @@ select{appearance:none;-webkit-appearance:none;
   </header>
   <div class="wrap">
     <div class="seg" id="home-seg">
-      <button data-f="active" class="on" onclick="setHomeFilter('active')">開催中</button>
+      <button data-f="all" class="on" onclick="setHomeFilter('all')">すべて</button>
+      <button data-f="active" onclick="setHomeFilter('active')">開催中</button>
       <button data-f="done" onclick="setHomeFilter('done')">完了</button>
-      <button data-f="all" onclick="setHomeFilter('all')">すべて</button>
     </div>
     <div id="ev-list"></div>
   </div>
@@ -409,10 +529,20 @@ select{appearance:none;-webkit-appearance:none;
     <div id="tab-dash"></div>
     <div id="tab-recs" class="hidden"></div>
     <div id="tab-chart" class="hidden">
-      <div id="chart-ranks" class="rankbar"></div>
-      <div class="rankbar" id="chart-modes">
-        <button id="cm-line" onclick="setChartMode('line')">推移</button>
-        <button id="cm-diff" onclick="setChartMode('diff')">ボーダーとの差</button>
+      <div class="ctlrow">
+        <div class="scroll" id="chart-ranks"></div>
+        <div class="seg" id="chart-modes">
+          <button id="cm-line" onclick="setChartMode('line')">推移</button>
+          <button id="cm-diff" onclick="setChartMode('diff')">差</button>
+        </div>
+      </div>
+      <div class="ctlrow" id="chart-zoom">
+        <div class="scroll">
+          <button data-z="all" onclick="setChartZoom('all')">全期間</button>
+          <button data-z="d3" onclick="setChartZoom('d3')">直近3日</button>
+          <button data-z="d1" onclick="setChartZoom('d1')">最終日</button>
+          <button data-z="h6" onclick="setChartZoom('h6')">最後の6時間</button>
+        </div>
       </div>
       <div class="chart-box"><canvas id="chart" height="300"></canvas>
         <div class="legend">
@@ -719,11 +849,11 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7
 
 /* ---------- 画面状態 ---------- */
 const state = {
-  homeFilter:"active",
+  homeFilter:"all",
   evId:null, boardId:null,
   tab:"dash",
   editRecId:null, editBoardMode:null, /* 'new' | boardId */
-  chartSel:null, chartRank:null, chartMode:"line",
+  chartSel:null, chartRank:null, chartMode:"line", chartZoom:"all",
   learnType:"all",
   simD:50, simV:"",
 };
@@ -1175,27 +1305,72 @@ function renderHome(){
     list.innerHTML = guide + `<div class="empty">イベントがありません。<br>右下の「＋ イベント」から最初のランイベを登録しましょう。</div>`;
     return;
   }
-  list.innerHTML = guide + evs.map(e=>{
+  const live = evs.filter(e=>e.status==="active"||e.status==="draft");
+  const done = evs.filter(e=>e.status==="done");
+  let out = guide;
+
+  /* 開催中は大きなカードで、いま危ないかどうかが一目で分かるように */
+  out += live.map(e=>{
     const b0 = e.boards[0]; const c = calc(e, b0);
-    const chipCls = e.status==="active" ? "live" : (e.status==="done" ? "done" : "draft");
-    const st = c.status!=="none" ? `判定 <b>${STATUS_TEXT[c.status]}</b>` : "";
+    const acc = ACC_VAR[c.status];
+    const diff = (c.myLast!=null && c.bdLast!=null) ? c.myLast-c.bdLast : null;
     const allTs = e.boards.flatMap(bd=>(bd.records||[]).map(r=>r.ts));
     const sinceH = allTs.length ? hoursBetween(Math.max(...allTs), Date.now()) : null;
-    const overdue = e.status==="active" && sinceH!=null && sinceH > recommendIntervalH(remainHours(e), e.boards[0]);
-    const recBadge = (e.status==="active" && sinceH!=null)
-      ? `<span style="color:${overdue?"var(--warn)":"var(--faint)"}">${overdue?"⏱ ":""}記録 ${hoursToText(sinceH)}前</span>` : "";
-    return `<button class="ev-card" onclick="showEvent('${e.id}')">
-      <span class="chip ${chipCls}">${STATUS_LABEL[e.status]}</span>
-      <div class="type">${typeName(e.type)}</div>
-      <div class="name">${esc(e.name||"（無題）")}</div>
-      <div class="meta">
-        <span>${remainText(e)}</span>
-        ${c.tRank?`<span>目標 <b>${c.tRank}位</b></span>`:""}
-        ${st?`<span>${st}</span>`:""}
-        ${recBadge}
+    const overdue = e.status==="active" && sinceH!=null && sinceH > recommendIntervalH(remainHours(e), b0);
+    const cap = (c.mySpd!=null && c.rh!=null) ? Math.max(1, c.mySpd*c.rh) : null;
+    const showBar = c.bdLast!=null && c.myLast!=null && c.safety!=null && cap!=null;
+    const mx = showBar ? trackPos(c, c.myLast, cap) : null;
+    const gsz = (()=>{const n=diff==null?0:Math.abs(Math.round(diff)).toLocaleString("ja-JP").length;
+      return n>=12?"s11":n>=10?"s9":"s7";})();
+    return `<button class="livecard" style="--acc:${acc}" onclick="showEvent('${e.id}')">
+      <div class="top"><span class="dot"></span>
+        <span class="st">${c.status==="none"?STATUS_LABEL[e.status]:STATUS_TEXT[c.status]}</span>
+        <span class="rest">${remainText(e)}</span></div>
+      <div class="nm">${esc(e.name||"（無題）")}</div>
+      <div class="figs">
+        <div>
+          <div class="g ${gsz}">${diff==null?"—":(diff>=0?"+":"−")+fmt(Math.abs(diff))}</div>
+          <div class="gk">${c.goalMode?"目標との差":`${c.tRank??"—"}位ボーダーとの差`}</div>
+        </div>
+        ${c.need!=null&&c.need>0?`<div class="need">あと<b>${fmt(c.need)}</b>${esc(e.pointName||"pt")}</div>`:""}
       </div>
+      ${showBar?`<div class="bar">
+        <i style="left:${Math.min(TRK_BD,mx)}%;width:${Math.abs(mx-TRK_BD)}%"></i>
+        <span class="sf" style="left:${TRK_SF}%"></span>
+        <span class="sf" style="left:${TRK_BD}%;background:var(--border-c)"></span>
+      </div>`:""}
+      ${overdue?`<div class="warnrec">最後の記録から ${hoursToText(sinceH)} 経過しています</div>`:""}
     </button>`;
   }).join("");
+
+  /* 完了は1行ずつ、最終結果だけ */
+  if(done.length){
+    out += `<div class="sect">終わったイベント</div>
+      <div class="card" style="padding:0;overflow:hidden">` + done.map(e=>{
+      const rb = (e.boards||[]).find(b=>b.kind!=="daily" && b.kind!=="goal" && sortedRecords(b).length);
+      const gb = (e.boards||[]).find(b=>b.kind==="goal" && sortedRecords(b).length);
+      let val = "—", col = "var(--faint)";
+      if(rb){
+        const rs = sortedRecords(rb); const lastRank = numOrNull(rs[rs.length-1].myRank);
+        if(lastRank!=null){ val = fmt(lastRank)+"位"; col = "var(--text)"; }
+        else { const p = numOrNull(rs[rs.length-1].myPoints); if(p!=null){ val = fmt(p); col="var(--text)"; } }
+      }else if(gb){
+        const my = mySeries(gb); const last = my.length?my[my.length-1].v:null;
+        const goal = numOrNull(gb.goalPoints);
+        if(last!=null){ val = fmt(last); col = (goal!=null && last>=goal) ? "var(--safe)" : "var(--text)"; }
+      }
+      const d = e.end ? new Date(e.end) : null;
+      return `<button class="donerow" onclick="showEvent('${e.id}')">
+        <span class="nm">${esc(e.name||"（無題）")}</span>
+        <span class="rk" style="color:${col}">${val}</span>
+        <span class="dt">${d?`${d.getMonth()+1}/${d.getDate()}`:""}</span>
+      </button>`;
+    }).join("") + `</div>`;
+  }
+  if(!live.length && state.homeFilter!=="done"){
+    out += `<div class="empty" style="margin-bottom:12px">開催中のイベントはありません。<br>右下の「＋ イベント」から登録できます。</div>`;
+  }
+  list.innerHTML = out;
 }
 function dismissGuide(){ db.settings.guideDismissed = true; saveDB(); renderHome(); }
 function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
@@ -1349,15 +1524,22 @@ function renderDashDaily(e, b){
   }
   const stCls = {safe:"s-safe",warn:"s-warn",danger:"s-danger",none:"s-none"}[status];
   const pn = e.pointName || "Pt";
-  let html = quickBarHtml(e, b, null) + `<div class="paceboard">
-    <div class="pb-status"><span class="st ${stCls}">本日 ${STATUS_TEXT[status]}</span></div>
-    <div class="pb-grid">
-      <div class="pb-side me"><div class="who">自分（本日）</div><div class="pt ${ptCls(myLast, bdLast)}">${fmt(myLast)}</div>
-        <div class="lb">${esc(pn)}${mySpd!=null?` ／ 時速 ${fmt(mySpd)}`:""}</div></div>
-      <div class="pb-side bd"><div class="who">本日ボーダー ${tRank??"—"}位</div><div class="pt ${ptCls(myLast, bdLast)}">${fmt(bdLast)}</div>
-        <div class="lb">${esc(pn)}${bdSpd!=null?` ／ 時速 ${fmt(bdSpd)}`:""}</div></div>
+  const dAcc = ACC_VAR[status];
+  const dDiff = (myLast!=null && bdLast!=null) ? myLast-bdLast : null;
+  let html = quickBarHtml(e, b, null) + `<div class="v2hero" style="--acc:${dAcc}">
+    <div class="vd"><span class="dot"></span><span class="t">本日 ${STATUS_TEXT[status]}</span>
+      <span class="clock">リセットまで <b>${hoursToText(rhD)}</b></span></div>
+    <div class="gapnum ${gapCls(dDiff)}">${dDiff==null?"—":(dDiff>=0?"+":"−")+fmt(Math.abs(dDiff))}</div>
+    <div class="gapcap">Day ${todayKey+1}　本日の記録 ${today.length}件${
+      dDiff==null?"" : dDiff>=0?`　${fmt(tRank)}位ボーダーを上回っています`:`　${fmt(tRank)}位ボーダーに届いていません`}</div>
+    <div class="v2pair">
+      <div class="c m"><div class="k">自分（本日）</div>
+        <div class="v ${ptCls(myLast,bdLast)}">${fmt(myLast)}</div>
+        <div class="s">${mySpd!=null?`時速 ${fmt(mySpd)}`:esc(pn)}</div></div>
+      <div class="c b"><div class="k">本日ボーダー ${tRank??"—"}位</div>
+        <div class="v ${ptCls(myLast,bdLast)}">${fmt(bdLast)}</div>
+        <div class="s">${bdSpd!=null?`時速 ${fmt(bdSpd)}`:esc(pn)}</div></div>
     </div>
-    <div class="pb-diff">Day ${todayKey+1}　・　日次リセットまで ${hoursToText(rhD)}　・　本日の記録 ${today.length}件</div>
   </div>`;
   html += `<div class="card"><h3>本日終了時の予測（今日の記録のみで計算）</h3>
     <div class="stat-grid">
@@ -1605,6 +1787,91 @@ function renderReview(e){
   html += `<button class="btn ghost" onclick="duplicateEvent('${e.id}')">この設定で次回イベントを作る</button>`;
   $("tab-dash").innerHTML = html;
 }
+/* ---------- v2：トラック座標 ---------- */
+const TRK_BD=32, TRK_SF=68, TRK_OUT=27, TRK_LOG=Math.log(101);
+function trackPos(c, v, cap){
+  /* ボーダー32%・安全ライン68%に固定。帯の外は「残り時間で稼げる量」を1単位に
+     対数圧縮するので、順位を切り替えても位置関係が逆転しない */
+  const w = (c.safety!=null && c.bdLast!=null) ? c.safety-c.bdLast : null;
+  if(w==null || cap==null || cap<=0) return TRK_BD;
+  if(w>0){
+    const t=(v-c.bdLast)/w;
+    if(t>=0 && t<=1) return TRK_BD + t*(TRK_SF-TRK_BD);
+  }
+  if(v < c.bdLast){
+    const o=(c.bdLast-v)/cap;
+    return Math.max(4, TRK_BD - TRK_OUT*Math.min(1, Math.log(1+o)/TRK_LOG));
+  }
+  const o=(v-c.safety)/cap;
+  return Math.min(96, TRK_SF + TRK_OUT*Math.min(1, Math.log(1+o)/TRK_LOG));
+}
+function gapCls(v){
+  const n = v==null?0:Math.abs(Math.round(v)).toLocaleString("ja-JP").length;
+  return n>=12?"g11":n>=10?"g9":"g7";
+}
+const ACC_VAR = {safe:"var(--safe)", warn:"var(--warn)", danger:"var(--danger)", none:"var(--faint)"};
+
+function v2HeroHtml(e, b, c){
+  const acc = ACC_VAR[c.status];
+  const pn = e.pointName || "Pt";
+  const diff = (c.myLast!=null && c.bdLast!=null) ? c.myLast-c.bdLast : null;
+  const cap = (c.mySpd!=null && c.rh!=null) ? Math.max(1, c.mySpd*c.rh) : null;
+  const showTrack = c.bdLast!=null && c.myLast!=null && c.safety!=null && cap!=null;
+  const mx = showTrack ? trackPos(c, c.myLast, cap) : TRK_BD;
+  const bdLabel = c.goalMode ? "目標" : `${fmt(c.tRank)}位ボーダー`;
+  return `<div class="v2hero" style="--acc:${acc}">
+    <div class="vd"><span class="dot"></span><span class="t">${STATUS_TEXT[c.status]}</span>
+      <span class="clock">残り <b>${remainText(e).replace(/^残り\s*/,"")}</b></span></div>
+    <div class="gapnum ${gapCls(diff)}">${diff==null?"—":(diff>=0?"+":"−")+fmt(Math.abs(diff))}</div>
+    <div class="gapcap">${diff==null?`記録がそろうと${bdLabel}との差が出ます`
+      :(diff>=0?`いまの${bdLabel}を上回っています`:`いまの${bdLabel}に届いていません`)}</div>
+    ${showTrack ? `<div class="trk" id="trk">
+      <div class="rail"></div>
+      <div class="band" style="left:${TRK_BD}%;width:${TRK_SF-TRK_BD}%"></div>
+      <div class="fill" style="left:${Math.min(TRK_BD,mx)}%;width:${Math.abs(mx-TRK_BD)}%;
+        background:color-mix(in srgb, ${acc} 48%, transparent)"></div>
+      <div class="mk zero" data-v="${c.bdLast}" style="left:${TRK_BD}%">
+        <div class="stem"></div><div class="cap">ボーダー</div><div class="val">${fmt(c.bdLast)}</div></div>
+      <div class="mk sfty" data-v="${c.safety}" style="left:${TRK_SF}%">
+        <div class="stem"></div><div class="cap">安全ライン</div><div class="val">${fmt(c.safety)}</div></div>
+      <div class="mk me" data-v="${c.myLast}" style="left:${mx}%">
+        <div class="knob"></div><div class="cap">自分</div><div class="val">${fmt(c.myLast)}</div></div>
+      <div class="hint">トラックに触れると数字が出ます</div>
+    </div>` : ""}
+    <div class="v2pair">
+      <div class="c m"><div class="k">自分</div>
+        <div class="v ${ptCls(c.myLast,c.bdLast)}">${fmt(c.myLast)}</div>
+        <div class="s">${c.mySpd!=null?`時速 ${fmt(c.mySpd)}`:esc(pn)}</div></div>
+      <div class="c b"><div class="k">${bdLabel}</div>
+        <div class="v ${ptCls(c.myLast,c.bdLast)}">${fmt(c.bdLast)}</div>
+        <div class="s">${c.bdSpd!=null?`時速 ${fmt(c.bdSpd)}`:esc(pn)}</div></div>
+    </div>
+  </div>`;
+}
+function bindTrack(){
+  const trk = $("trk"); if(!trk) return;
+  const marks = [...trk.querySelectorAll(".mk")];
+  const hint = trk.querySelector(".hint");
+  const hide = ()=>{ marks.forEach(m=>m.classList.remove("show"));
+    if(hint) hint.textContent = "トラックに触れると数字が出ます"; };
+  const pick = cx=>{
+    const rect = trk.getBoundingClientRect();
+    const x = cx-rect.left;
+    let best=null, bd=1e9;
+    marks.forEach(m=>{
+      const ex = rect.width*parseFloat(m.style.left)/100;
+      const d = Math.abs(ex-x);
+      if(d<bd){bd=d;best=m;}
+    });
+    marks.forEach(m=>m.classList.toggle("show", m===best || bd>60));
+    if(hint) hint.textContent = "";
+  };
+  ["pointerdown","pointermove"].forEach(ev=>trk.addEventListener(ev, e=>{
+    if(e.buttons || e.type==="pointerdown" || e.pointerType==="mouse") pick(e.clientX);
+  }));
+  trk.addEventListener("pointerleave", hide);
+  trk.addEventListener("pointerup", ()=>setTimeout(hide, 1600));
+}
 function renderDash(){
   const e=ev(), b=board();
   if(e && e.status==="done"){ renderReview(e); return; }
@@ -1618,32 +1885,54 @@ function renderDash(){
   const diff = (c.myLast!=null && c.bdLast!=null) ? c.myLast-c.bdLast : null;
   const boardNote = e.boards.length>1 ? `「${esc(b.name)}」ボード` : "";
 
-  let html = quickBarHtml(e, b, c) + `
-  <div class="paceboard">
-    <div class="pb-status"><span class="st ${stCls}">${STATUS_TEXT[c.status]}</span></div>
-    <div class="pb-grid">
-      <div class="pb-side me">
-        <div class="who">自分 ME</div>
-        <div class="pt ${ptCls(c.myLast, c.bdLast)}">${fmt(c.myLast)}</div>
-        <div class="lb">${esc(pn)}${c.mySpd!=null?` ／ 時速 ${fmt(c.mySpd)}`:""}</div>
-      </div>
-      <div class="pb-side bd">
-        <div class="who">${c.goalMode?"目標 GOAL":`ボーダー ${c.tRank??"—"}位`}</div>
-        <div class="pt ${ptCls(c.myLast, c.bdLast)}">${fmt(c.bdLast)}</div>
-        <div class="lb">${esc(pn)}${c.bdSpd!=null?` ／ 時速 ${fmt(c.bdSpd)}`:""}</div>
-      </div>
-    </div>
-    <div class="pb-diff">${c.goalMode?"目標差":"ボーダー差"}
-      <span class="num ${diff==null?"":(diff>=0?"diff-plus":"diff-minus")}">${diff==null?"—":(diff>=0?"+":"")+fmt(diff)}</span>
-      　・　${remainText(e)}${sinceH!=null?`　・　記録 ${hoursToText(sinceH)}前`:""} ${boardNote?`　・　${boardNote}`:""}
-    </div>
-  </div>`;
+  let html = v2HeroHtml(e, b, c);
 
   /* --- 周回コスト前計算 --- */
   const lap = b.lap||{}, gset = db.settings||{};
   const lapPt = numOrNull(lap.pt), lapMin = numOrNull(lap.min);
   const laps = (lapPt && c.need!=null && c.need>0) ? Math.ceil(c.need/lapPt) : null;
   const lapHours = (laps!=null && lapMin!=null) ? laps*lapMin/60 : null;
+
+  /* --- 行動サマリー（いちばん知りたいことを上に） --- */
+  if(c.need!=null){
+    const actTitle = c.status==="safe" ? "安全ラインまで残り"
+      : c.status==="danger" ? "追いつくために必要な分" : "安全ラインに乗るために必要な分";
+    let trans = "";
+    if(laps!=null){
+      const gpN = numOrNull(lap.gp)!=null ? laps*Number(lap.gp) : null;
+      const vamoN = (gpN!=null && numOrNull(gset.vamoPerHeal)) ? Math.ceil(gpN/100)*Number(gset.vamoPerHeal) : null;
+      trans = `<div class="trans">
+        <div class="i"><div class="k">周回</div><div class="v">${fmt(laps)}<small>周</small></div></div>
+        ${lapHours!=null?`<div class="i"><div class="k">時間</div><div class="v">${fmt1(lapHours)}<small>h</small></div></div>`:""}
+        ${gpN!=null?`<div class="i"><div class="k">GP</div><div class="v">${fmt(gpN)}</div></div>`:""}
+        ${vamoN!=null?`<div class="i"><div class="k">バモ</div><div class="v">${fmt(vamoN)}</div></div>`:""}
+      </div>`;
+    }
+    let spd = "";
+    if(c.needSpd!=null && isFinite(c.needSpd) && c.mySpd!=null){
+      const mx = Math.max(c.needSpd, c.mySpd, 1);
+      const ratio = c.mySpd>0 ? c.needSpd/c.mySpd : null;
+      spd = `<div style="margin-top:15px">
+        <div class="spdrow"><span class="lb">必要な時速</span>
+          <span class="bar"><i style="width:${c.needSpd/mx*100}%;background:var(--border-c)"></i></span>
+          <span class="val">${fmt(c.needSpd)}</span></div>
+        <div class="spdrow"><span class="lb">いまの時速</span>
+          <span class="bar"><i style="width:${c.mySpd/mx*100}%;background:var(--me)"></i></span>
+          <span class="val">${fmt(c.mySpd)}</span></div>
+        <div class="note" style="margin-top:6px">${
+          c.status==="safe" ? "いまのペースを保てば逃げ切れます。"
+          : ratio==null ? ""
+          : ratio<=1 ? "いまのペースで足ります。"
+          : ratio<=2 ? `時速を ${fmt1(ratio)}倍にすれば届きます。`
+          : `いまのペースの ${fmt(Math.round(ratio))}倍が必要です。目標を一段下げる判断も検討してください。`}</div>
+      </div>`;
+    }
+    html += `<div class="card v2act"><h3>${actTitle}</h3>
+      <div class="need"><span class="n">${fmt(c.need)}</span><span class="u">${esc(pn)}</span></div>
+      ${trans}${spd}
+      ${lapPt?"":`<div class="note" style="margin-top:11px">「1周あたりの獲得pt」を設定すると、必要量を周回数・時間・GP・バモに換算します。<button class="small-link" onclick="openLapModal()">周回コストを設定</button></div>`}
+    </div>`;
+  }
   /* --- 撤退判定 --- */
   const alerts = [];
   if(c.status==="warn" || c.status==="danger"){
@@ -1883,6 +2172,7 @@ function renderDash(){
   }
   html += `<button class="btn ghost" onclick="openRecordModal()">くわしく記録（資源・メモ・他の順位）</button>`;
   $("tab-dash").innerHTML = html;
+  bindTrack();
 }
 function setCompareTarget(rank){
   const e=ev(), b=board(); if(!e) return;
@@ -1901,22 +2191,44 @@ function renderRecs(){
     $("tab-recs").innerHTML = `<div class="empty">まだ記録がありません。<br>＋から最初の記録を追加しましょう。<br><span style="font-size:11px">序盤は1日2〜3回、終盤は数時間おきの記録が予測精度を上げます。</span></div>`;
     return;
   }
+  /* 時系列順（古い→新しい）で前回との差を持たせる */
+  const asc = sortedRecords(b);
+  const gains = {};
+  let prevMy = null, prevTs = null;
+  asc.forEach(r=>{
+    const v = numOrNull(r.myPoints);
+    if(v!=null){
+      if(prevMy!=null){
+        const dt = (r.ts-prevTs)/3600000;
+        gains[r.id] = {d: v-prevMy, spd: dt>0 ? (v-prevMy)/dt : null, h: dt};
+      }
+      prevMy = v; prevTs = r.ts;
+    }
+  });
   const rowHtml = r=>{
     const bdv = (tRank!=null && r.borders) ? r.borders[tRank] : null;
+    const my = numOrNull(r.myPoints);
+    const g = gains[r.id];
     const gpAmt = healAmountOf(r,"gp"), bpAmt = healAmountOf(r,"bp"), vm = numOrNull(r.vamo);
     const resParts = [];
     if(vm!=null) resParts.push(`バモ ${fmt(vm)}`);
-    if(gpAmt!=null) resParts.push(`GP薬 ${fmt(gpAmt)}GP分`);
-    if(bpAmt!=null) resParts.push(`BP薬 ${fmt(bpAmt)}BP分`);
-    const res = resParts.length
-      ? `<span class="cell"><span class="k">資源</span>${resParts.join(" / ")}</span>` : "";
-    return `<button class="rec" onclick="openRecordModal('${r.id}')">
-      <div class="top"><span class="ts">${fmtDT(r.ts)}</span><span class="rank">${r.myRank?`自分 ${fmt(r.myRank)}位`:""}</span></div>
-      <div class="row">
-        <span class="cell c-me"><span class="k">自分</span>${fmt(numOrNull(r.myPoints))}</span>
-        <span class="cell c-bd"><span class="k">${tRank??"—"}位ボーダー</span>${fmt(numOrNull(bdv))}</span>
-        ${r.tokko?`<span class="cell"><span class="k">特効</span>${esc(r.tokko)}%</span>`:""}
-        ${res}
+    if(gpAmt!=null) resParts.push(`GP ${fmt(gpAmt)}`);
+    if(bpAmt!=null) resParts.push(`BP ${fmt(bpAmt)}`);
+    const t = fmtDT(r.ts);
+    return `<button class="r2" onclick="openRecordModal('${r.id}')">
+      <div class="l1">
+        <span class="ts">${t}</span>
+        <span class="gain ${g&&g.d>0?"up":"flat"}">${
+          g ? (g.d>0?"+":"")+fmt(g.d) : (my!=null?fmt(my):"—")}</span>
+        ${g&&g.spd!=null?`<span class="spd">${fmt(g.spd)}/h</span>`:""}
+      </div>
+      <div class="l2">
+        ${my!=null?`<span><b>累計</b> ${fmt(my)}</span>`:""}
+        ${bdv!=null?`<span class="bd"><b>${tRank}位</b> ${fmt(bdv)}</span>`:""}
+        ${my!=null&&bdv!=null?`<span style="color:${my>=bdv?"var(--safe)":"var(--danger)"}">${my>=bdv?"+":"−"}${fmt(Math.abs(my-bdv))}</span>`:""}
+        ${r.myRank?`<span>${fmt(r.myRank)}位</span>`:""}
+        ${r.tokko?`<span>特効 ${esc(r.tokko)}%</span>`:""}
+        ${resParts.length?`<span>${resParts.join(" / ")}</span>`:""}
       </div>
       ${r.memo?`<div class="memo">${esc(r.memo)}</div>`:""}
     </button>`;
@@ -1927,14 +2239,14 @@ function renderRecs(){
     recs.forEach(r=>{
       const k = dayOfRecord(e, b, r);
       if(k !== lastKey){
-        out += `<div style="font-size:12px;color:var(--border-c);font-weight:700;margin:16px 2px 8px">Day ${k+1}${k===todayKey?"（今日）":""}</div>`;
+        out += `<div class="daysep">Day ${k+1}${k===todayKey?"（今日）":""}</div>`;
         lastKey = k;
       }
       out += rowHtml(r);
     });
-    $("tab-recs").innerHTML = out;
+    $("tab-recs").innerHTML = `<div class="reclist">${out}</div>`;
   }else{
-    $("tab-recs").innerHTML = recs.map(rowHtml).join("");
+    $("tab-recs").innerHTML = `<div class="reclist">${recs.map(rowHtml).join("")}</div>`;
   }
 }
 
@@ -1989,6 +2301,18 @@ function chartRankOf(e, b){
   if(t!=null && ranks.includes(t)) return t;
   return t!=null ? t : (ranks[0] ?? null);
 }
+function setChartZoom(z){
+  state.chartZoom = z; state.chartSel = null;
+  renderChart(); renderRankBar();
+}
+function zoomRange(e, t0, t1){
+  /* 表示範囲を絞る。基準は「イベント終了（または最後の記録）」から遡る */
+  const z = state.chartZoom || "all";
+  if(z==="all") return [t0,t1];
+  const span = z==="d3" ? 3*86400000 : z==="d1" ? 86400000 : 6*3600000;
+  const end = t1;
+  return [Math.max(t0, end-span), end];
+}
 function setChartMode(m){
   state.chartMode = m;
   state.chartSel = null;
@@ -2017,6 +2341,9 @@ function renderRankBar(){
   const cm = state.chartMode || "line";
   $("cm-line").className = cm==="line" ? "on" : "";
   $("cm-diff").className = cm==="diff" ? "on" : "";
+  const z = state.chartZoom || "all";
+  const zw = $("chart-zoom");
+  if(zw) zw.querySelectorAll("button").forEach(x=>x.classList.toggle("on", x.dataset.z===z));
   const lg = $("lg-bd");
   if(lg) lg.textContent = cur!=null ? `${fmt(cur)}位ボーダー` : "ボーダー";
   const tip = $("chart-tip");
@@ -2039,7 +2366,7 @@ function renderChartDiff(e, b, c){
 
   /* 同時刻ペアだけでなく、ボーダーを線形補間して差を出す */
   const bd = c.bd;
-  const diffs = [];
+  let diffs = [];
   if(bd.length>=1){
     c.my.forEach(p=>{
       let v=null;
@@ -2064,6 +2391,11 @@ function renderChartDiff(e, b, c){
   let t0 = Math.min(...diffs.map(p=>p.ts)), t1 = Math.max(...diffs.map(p=>p.ts));
   if(e.end && e.end>t1) t1 = e.end;
   if(t1<=t0) t1 = t0+3600000;
+  if((state.chartZoom||"all")!=="all"){
+    const zr = zoomRange(e, t0, t1);
+    const inR = diffs.filter(p=>p.ts>=zr[0] && p.ts<=zr[1]);
+    if(inR.length>=1){ diffs = inR; t0 = zr[0]; t1 = zr[1]; }
+  }
   const vs = diffs.map(p=>p.v);
   let v0 = Math.min(0, ...vs), v1 = Math.max(0, ...vs);
   const pad = Math.max(1,(v1-v0))*0.12; v0-=pad; v1+=pad;
@@ -2160,7 +2492,7 @@ function renderChart(){
   const plotW = W-padL-padR, plotH = H-padT-padB;
 
   /* --- データ範囲 --- */
-  const pts = [];
+  let pts = [];
   c.my.forEach(p=>pts.push(p));
   c.bd.forEach(p=>pts.push(p));
   if(!pts.length){
@@ -2173,6 +2505,12 @@ function renderChart(){
   let t1 = dayBounds ? dayBounds[1] : (e.end   || Math.max(...pts.map(p=>p.ts)));
   t0 = Math.min(t0, ...pts.map(p=>p.ts));
   t1 = Math.max(t1, ...pts.map(p=>p.ts));
+  if(!dayBounds && (state.chartZoom||"all")!=="all"){
+    const zr = zoomRange(e, t0, t1);
+    t0 = zr[0]; t1 = zr[1];
+    const inRange = pts.filter(p=>p.ts>=t0 && p.ts<=t1);
+    if(inRange.length>=1) pts = inRange;
+  }
   if(t1<=t0) t1 = t0 + 3600000;
   let v0 = 0;
   let v1 = Math.max(...pts.map(p=>p.v), c.safety||0, c.pred||0, c.curve?c.curve.pred:0);
