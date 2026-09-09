@@ -4,14 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default" id="meta-sbar">
+<meta name="theme-color" content="#0B1220" id="meta-theme">
 <title>ランイベ手帳</title>
 <script>
 /* ===== 自動更新チェック（iOSホーム画面アプリのキャッシュ対策） =====
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260909.2";
+window.__BUILD__ = "20260909.5";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -32,27 +33,52 @@ window.__BUILD__ = "20260909.2";
 </script>
 <style>
 :root{
-  --ink:#0B1220;        /* ナイトゲームの空 */
-  --panel:#141D30;      /* パネル */
-  --panel2:#1A2540;     /* 浮き上がりパネル */
-  --line:#25334F;       /* 罫線 */
-  --text:#E9EEF7;
-  --sub:#8B99B5;
-  --faint:#6C7B9C;
-  --me:#E0424D;         /* 自分＝レッド */
-  --border-c:#4C84EE;   /* ボーダー＝ブルー */
-  --safe:#3DBE7B;
-  --warn:#E8A33D;
-  --danger:#E85D5D;
-  --gold:#D8B24A;
   --radius:14px;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
+  --font:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+}
+/* ダーク（既定）：ナイトゲームの空 */
+body,body[data-theme="night"],body[data-theme="auto"]{
+  --ink:#0B1220; --panel:#141D30; --panel2:#1A2540; --line:#25334F;
+  --text:#E9EEF7; --sub:#8B99B5; --faint:#6C7B9C;
+  --me:#E0424D; --border-c:#4C84EE;
+  --safe:#3DBE7B; --warn:#E8A33D; --danger:#E85D5D; --gold:#D8B24A;
+  --rail:#1B2740; --grid:#1D2942; --grid2:#1A2440; --grid3:#243356;
+  --endline:#3A4A6E; --canvas-sub:#6C7B9C;
+  --card-bw:1px; --card-shadow:none; --radius-card:14px; --radius-in:11px;
+  --font-ui:var(--font);
+}
+/* 端末がライトモードのときは auto をライトにする */
+@media (prefers-color-scheme: light){
+  body[data-theme="auto"]{
+    --ink:#EDF0F6; --panel:#FFFFFF; --panel2:#F7F9FD; --line:rgba(20,32,58,.10);
+    --text:#1B2540; --sub:#5A6884; --faint:#8B98B0;
+    --me:#D93B4A; --border-c:#3E6FD9;
+    --safe:#2FA76B; --warn:#C08018; --danger:#D8434A; --gold:#A9801E;
+    --rail:#E3E8F2; --grid:#E8ECF4; --grid2:#EFF2F8; --grid3:#DCE3EF;
+    --endline:#C3CCDC; --canvas-sub:#8B98B0;
+    --card-bw:0px; --card-shadow:0 4px 18px rgba(27,37,64,.09);
+    --radius-card:20px; --radius-in:14px;
+    --font-ui:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN",var(--font);
+  }
+}
+/* ライト：明るい・やわらかい */
+body[data-theme="paper"]{
+  --ink:#EDF0F6; --panel:#FFFFFF; --panel2:#F7F9FD; --line:rgba(20,32,58,.10);
+  --text:#1B2540; --sub:#5A6884; --faint:#8B98B0;
+  --me:#D93B4A; --border-c:#3E6FD9;
+  --safe:#2FA76B; --warn:#C08018; --danger:#D8434A; --gold:#A9801E;
+  --rail:#E3E8F2; --grid:#E8ECF4; --grid2:#EFF2F8; --grid3:#DCE3EF;
+  --endline:#C3CCDC; --canvas-sub:#8B98B0;
+  --card-bw:0px; --card-shadow:0 4px 18px rgba(27,37,64,.09);
+  --radius-card:20px; --radius-in:14px;
+  --font-ui:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN",var(--font);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{font-size:16px}
 body{
   background:var(--ink);color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  font-family:var(--font-ui);
   min-height:100vh;padding-bottom:env(safe-area-inset-bottom);
   overscroll-behavior-y:none;
 }
@@ -70,13 +96,13 @@ label{display:block;font-size:12px;color:var(--sub);margin:12px 0 5px;letter-spa
 /* ===== ヘッダー ===== */
 header{
   position:sticky;top:0;z-index:20;
-  background:rgba(11,18,32,.92);backdrop-filter:blur(12px);
+  background:color-mix(in srgb, var(--ink) 92%, transparent);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--line);
   padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
   display:flex;align-items:center;gap:10px;
 }
 header .back{font-size:22px;color:var(--sub);padding:2px 8px 2px 0}
-header h1{font-size:17px;font-weight:800;letter-spacing:.02em;flex:1;
+header h1{font-size:17px;font-weight:800;letter-spacing:.02em;flex:1;color:var(--text);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2px 6px 10px}
 
@@ -84,7 +110,7 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 
 /* ===== ホーム ===== */
 .brand{display:flex;align-items:baseline;gap:8px;margin:4px 0 14px}
-.brand .t{font-size:24px;font-weight:800;letter-spacing:.01em}
+.brand .t{font-size:24px;font-weight:800;letter-spacing:.01em;color:var(--text)}
 .brand .s{font-size:11px;color:var(--faint);letter-spacing:.14em}
 .seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:14px}
 .seg button{flex:1;padding:9px 0;border-radius:8px;font-size:14px;font-weight:600;color:var(--sub)}
@@ -125,7 +151,7 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 /* ===== イベント詳細：タブ ===== */
 .tabs{
   position:sticky;top:calc(45px + env(safe-area-inset-top));z-index:18;
-  display:flex;background:rgba(11,18,32,.92);backdrop-filter:blur(12px);
+  display:flex;background:color-mix(in srgb, var(--ink) 92%, transparent);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--line);padding:0 8px;
 }
 .tabs button{
@@ -154,7 +180,8 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
   border-radius:99px;padding:1px 7px;margin-left:2px}
 .daysep{font-size:11px;color:var(--border-c);font-weight:700;letter-spacing:.05em;
   padding:16px 14px 7px;background:var(--ink)}
-.reclist{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--panel)}
+.reclist{border:var(--card-bw) solid var(--line);border-radius:var(--radius-card);
+  overflow:hidden;background:var(--panel);box-shadow:var(--card-shadow)}
 .reclist .r2:last-child{border-bottom:none}
 
 /* ---------- v2 グラフ操作 ---------- */
@@ -163,14 +190,16 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .ctlrow .scroll::-webkit-scrollbar{display:none}
 .ctlrow button{flex:0 0 auto;font-size:12px;font-weight:600;padding:7px 12px;border-radius:99px;
   border:1px solid var(--line);background:var(--panel);color:var(--sub);white-space:nowrap}
-.ctlrow button.on{border-color:var(--border-c);color:var(--border-c);background:rgba(76,132,238,.10)}
+.ctlrow button.on{border-color:var(--border-c);color:var(--border-c);
+  background:color-mix(in srgb,var(--border-c) 12%,transparent)}
 .ctlrow .seg{display:flex;gap:0;flex:0 0 auto;border:1px solid var(--line);border-radius:99px;overflow:hidden}
 .ctlrow .seg button{border:none;border-radius:0;padding:7px 11px;font-size:11px}
-.ctlrow .seg button.on{background:rgba(76,132,238,.16);color:var(--border-c)}
+.ctlrow .seg button.on{background:color-mix(in srgb,var(--border-c) 16%,transparent);color:var(--border-c)}
 
 /* ---------- v2 ヒーロー ---------- */
-.v2hero{position:relative;border-radius:var(--radius);padding:18px 17px 8px;overflow:hidden;
-  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line)}
+.v2hero{position:relative;border-radius:var(--radius-card);padding:18px 17px 8px;overflow:hidden;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:var(--card-bw) solid var(--line);box-shadow:var(--card-shadow)}
 .v2hero .vd{display:flex;align-items:center;gap:9px;margin-bottom:14px}
 .v2hero .vd .dot{width:9px;height:9px;border-radius:50%;background:var(--acc)}
 .v2hero .vd .t{font-size:15px;font-weight:700;color:var(--acc)}
@@ -184,8 +213,8 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .v2hero .gapcap{font-size:12px;color:var(--sub);margin-top:8px}
 
 .trk{position:relative;height:104px;margin:16px -3px 0;touch-action:none}
-.trk .rail{position:absolute;left:12px;right:12px;top:48px;height:10px;border-radius:99px;background:#1B2740}
-.trk .band{position:absolute;top:48px;height:10px;background:rgba(216,178,74,.15)}
+.trk .rail{position:absolute;left:12px;right:12px;top:48px;height:10px;border-radius:99px;background:var(--rail)}
+.trk .band{position:absolute;top:48px;height:10px;background:color-mix(in srgb,var(--gold) 16%,transparent)}
 .trk .fill{position:absolute;top:48px;height:10px;border-radius:99px;transition:all .32s cubic-bezier(.4,0,.2,1)}
 .trk .mk{position:absolute;transform:translateX(-50%);transition:left .32s cubic-bezier(.4,0,.2,1)}
 .trk .mk .stem{width:2px;border-radius:2px;margin:0 auto}
@@ -199,7 +228,8 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .trk .sfty .cap{color:var(--gold);margin-top:4px} .trk .sfty .val{color:var(--gold)}
 .trk .me{top:40px}
 .trk .me .knob{width:26px;height:26px;border-radius:50%;background:var(--me);
-  border:4px solid var(--panel);margin:0 auto;box-shadow:0 4px 14px rgba(224,66,77,.4)}
+  border:4px solid var(--panel);margin:0 auto;
+  box-shadow:0 4px 14px color-mix(in srgb,var(--me) 42%,transparent)}
 .trk .me .cap{color:var(--me);margin-top:3px} .trk .me .val{color:var(--me)}
 .trk .hint{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:10px;color:var(--faint)}
 
@@ -223,15 +253,16 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .v2act .trans .i .v small{font-size:10px;color:var(--faint);margin-left:1px;font-weight:400}
 .spdrow{display:flex;align-items:center;gap:9px;margin-bottom:7px}
 .spdrow .lb{font-size:11px;color:var(--sub);width:64px;flex:0 0 auto}
-.spdrow .bar{flex:1;height:10px;border-radius:99px;background:#1B2740;overflow:hidden}
+.spdrow .bar{flex:1;height:10px;border-radius:99px;background:var(--rail);overflow:hidden}
 .spdrow .bar i{display:block;height:100%;border-radius:99px}
 .spdrow .val{font-family:var(--mono);font-size:12px;font-weight:700;width:66px;text-align:right;
   flex:0 0 auto;font-variant-numeric:tabular-nums}
 
 /* ---------- v2 ホーム ---------- */
 .livecard{display:block;width:100%;text-align:left;position:relative;overflow:hidden;
-  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
-  border-radius:var(--radius);padding:16px 16px 15px;margin-bottom:12px}
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:var(--card-bw) solid var(--line);box-shadow:var(--card-shadow);
+  border-radius:var(--radius-card);padding:16px 16px 15px;margin-bottom:12px}
 .livecard .top{display:flex;align-items:center;gap:9px;margin-bottom:11px}
 .livecard .top .dot{width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .livecard .top .st{font-size:13px;font-weight:700;color:var(--acc)}
@@ -244,7 +275,7 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .livecard .figs .gk{font-size:10px;color:var(--faint);margin-top:5px}
 .livecard .figs .need{text-align:right;font-size:11px;color:var(--sub)}
 .livecard .figs .need b{display:block;font-family:var(--mono);font-size:16px;color:var(--text);font-weight:700}
-.livecard .bar{margin-top:13px;height:6px;border-radius:99px;background:#1B2740;overflow:hidden;position:relative}
+.livecard .bar{margin-top:13px;height:6px;border-radius:99px;background:var(--rail);overflow:hidden;position:relative}
 .livecard .bar i{position:absolute;top:0;bottom:0;border-radius:99px;background:var(--acc);opacity:.75}
 .livecard .bar .sf{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--gold);opacity:.85}
 .livecard .warnrec{margin-top:11px;font-size:11px;color:var(--warn)}
@@ -297,7 +328,8 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .diff-minus{color:var(--danger)}
 
 /* ===== 汎用カード・統計 ===== */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+.card{background:var(--panel);border:var(--card-bw) solid var(--line);
+  border-radius:var(--radius-card);box-shadow:var(--card-shadow);
   padding:14px 16px;margin-bottom:14px}
 .card h3{font-size:12px;color:var(--sub);font-weight:700;letter-spacing:.08em;margin-bottom:10px}
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -339,7 +371,8 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .rankbar::-webkit-scrollbar{display:none}
 .rankbar button{flex:0 0 auto;font-size:12px;font-weight:600;padding:7px 13px;border-radius:99px;
   border:1px solid var(--line);background:var(--panel);color:var(--sub);white-space:nowrap}
-.rankbar button.on{border-color:var(--border-c);color:var(--border-c);background:rgba(76,132,238,.10)}
+.rankbar button.on{border-color:var(--border-c);color:var(--border-c);
+  background:color-mix(in srgb,var(--border-c) 12%,transparent)}
 .rankbar button.tgt::after{content:"◎";margin-left:4px;font-size:10px;opacity:.8}
 .chart-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
   padding:12px 8px 6px;margin-bottom:12px}
@@ -779,7 +812,15 @@ select{appearance:none;-webkit-appearance:none;
 <div class="modal-bg" id="m-data">
   <div class="modal">
     <div class="grip"></div>
-    <h2>データ管理</h2>
+    <h2>設定とデータ</h2>
+    <label>見た目</label>
+    <div class="ctlrow" style="margin-bottom:16px">
+      <div class="scroll" id="theme-seg">
+        <button data-th="auto" onclick="setTheme('auto')">端末に合わせる</button>
+        <button data-th="night" onclick="setTheme('night')">ダーク</button>
+        <button data-th="paper" onclick="setTheme('paper')">ライト</button>
+      </div>
+    </div>
     <div class="m-sub">データはこの端末のブラウザ内（localStorage）に保存されます。念のため定期的にバックアップしてください。</div>
     <button class="btn ghost" onclick="exportJSON()">JSONバックアップを書き出す</button>
     <label>バックアップを読み込む（貼り付け）</label>
@@ -2354,6 +2395,7 @@ function renderRankBar(){
   }
 }
 function renderChartDiff(e, b, c){
+  const CC = chartColors();
   /* 自分 − ボーダー の推移。終盤の僅差を見るためのモード */
   const cv = $("chart");
   const W = cv.clientWidth || (cv.parentElement.clientWidth-16);
@@ -2384,7 +2426,7 @@ function renderChartDiff(e, b, c){
     });
   }
   if(diffs.length<1){
-    ctx.fillStyle="#6C7B9C"; ctx.font="13px -apple-system,sans-serif"; ctx.textAlign="center";
+    ctx.fillStyle=CC.sub; ctx.font="13px -apple-system,sans-serif"; ctx.textAlign="center";
     ctx.fillText("自分とボーダーの記録が重なる期間がありません", W/2, H/2);
     state.chartGeo=null; return;
   }
@@ -2403,8 +2445,8 @@ function renderChartDiff(e, b, c){
   const Y = v  => padT + (1-(v-v0)/(v1-v0))*plotH;
 
   /* グリッド */
-  ctx.strokeStyle="#1D2942"; ctx.lineWidth=1;
-  ctx.fillStyle="#6C7B9C"; ctx.font="10px ui-monospace,monospace";
+  ctx.strokeStyle=CC.grid; ctx.lineWidth=1;
+  ctx.fillStyle=CC.sub; ctx.font="10px ui-monospace,monospace";
   for(let i=0;i<=4;i++){
     const v=v0+(v1-v0)*i/4, y=Y(v);
     ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
@@ -2414,9 +2456,9 @@ function renderChartDiff(e, b, c){
 
   /* ゼロライン＝ボーダー */
   const zy = Y(0);
-  ctx.strokeStyle="#4C84EE"; ctx.lineWidth=2;
+  ctx.strokeStyle=CC.bd; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(padL,zy); ctx.lineTo(W-padR,zy); ctx.stroke();
-  ctx.fillStyle="#4C84EE"; ctx.font="10px ui-monospace,monospace"; ctx.textAlign="left";
+  ctx.fillStyle=CC.bd; ctx.font="10px ui-monospace,monospace"; ctx.textAlign="left";
   ctx.fillText("ボーダー", padL+4, zy-5);
 
   /* 差の塗り分け */
@@ -2426,10 +2468,10 @@ function renderChartDiff(e, b, c){
   ctx.lineTo(X(diffs[0].ts), zy);
   ctx.closePath();
   const lastV = diffs[diffs.length-1].v;
-  ctx.fillStyle = lastV>=0 ? "rgba(61,190,123,.16)" : "rgba(232,93,93,.16)";
+  ctx.fillStyle = lastV>=0 ? `color-mix(in srgb, ${CC.safe} 16%, transparent)` : `color-mix(in srgb, ${CC.danger} 16%, transparent)`;
   ctx.fill();
 
-  ctx.strokeStyle = lastV>=0 ? "#3DBE7B" : "#E85D5D"; ctx.lineWidth=2.2;
+  ctx.strokeStyle = lastV>=0 ? CC.safe : CC.danger; ctx.lineWidth=2.2;
   ctx.beginPath();
   diffs.forEach((p,i)=> i?ctx.lineTo(X(p.ts),Y(p.v)):ctx.moveTo(X(p.ts),Y(p.v)));
   ctx.stroke();
@@ -2438,13 +2480,14 @@ function renderChartDiff(e, b, c){
 
   if(state.chartSel){
     const sx=X(state.chartSel.ts);
-    ctx.strokeStyle="rgba(233,238,247,.7)"; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+    ctx.strokeStyle=`color-mix(in srgb, ${CC.text} 70%, transparent)`; ctx.lineWidth=1; ctx.setLineDash([2,3]);
     ctx.beginPath(); ctx.moveTo(sx,padT); ctx.lineTo(sx,H-padB); ctx.stroke(); ctx.setLineDash([]);
   }
   state.chartGeo = {X,Y,t0,t1,v0,v1,diff:true,
-    series: diffs.map(p=>({...p, color:(p.v>=0?"#3DBE7B":"#E85D5D"), who:"ボーダーとの差"}))};
+    series: diffs.map(p=>({...p, color:(p.v>=0?CC.safe:CC.danger), who:"ボーダーとの差"}))};
 }
 function drawDayGrid(ctx, X, t0, t1, W, H, padL, padR, padT, padB){
+  const CC = chartColors();
   const spanD=(t1-t0)/86400000;
   const step = spanD<=8 ? 1 : spanD<=16 ? 2 : Math.ceil(spanD/8);
   const d0=new Date(t0); d0.setHours(0,0,0,0);
@@ -2455,19 +2498,42 @@ function drawDayGrid(ctx, X, t0, t1, W, H, padL, padR, padT, padB){
     const x=X(t);
     if(x<padL-1||x>W-padR+1) continue;
     const show=(i%step)===0;
-    ctx.strokeStyle = show ? "#243356" : "#1A2440"; ctx.lineWidth=1;
+    ctx.strokeStyle = show ? CC.grid3 : CC.grid2; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke();
     if(show){
       const dd=new Date(t);
-      ctx.fillStyle="#6C7B9C";
+      ctx.fillStyle=CC.sub;
       ctx.fillText(`${dd.getMonth()+1}/${dd.getDate()}`, Math.min(Math.max(x,padL+12),W-padR-12), H-8);
       drawn.push(x);
     }
   }
   return drawn;
 }
+function cssv(name, fallback){
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
+}
+function chartColors(){
+  return {
+    me:   cssv("--me","#E0424D"),
+    bd:   cssv("--border-c","#4C84EE"),
+    gold: cssv("--gold","#D8B24A"),
+    safe: cssv("--safe","#3DBE7B"),
+    warn: cssv("--warn","#E8A33D"),
+    danger:cssv("--danger","#E85D5D"),
+    grid: cssv("--grid","#1D2942"),
+    grid2:cssv("--grid2","#1A2440"),
+    grid3:cssv("--grid3","#243356"),
+    sub:  cssv("--canvas-sub","#6C7B9C"),
+    end:  cssv("--endline","#3A4A6E"),
+    text: cssv("--text","#E9EEF7"),
+    panel:cssv("--panel","#141D30"),
+    rail: cssv("--rail","#1B2740"),
+  };
+}
 function renderChart(){
   const cv = $("chart");
+  const CC = chartColors();
   const e=ev(), b=board(); let c=calc(e,b, chartRankOf(e,b));
   if(state.chartMode==="diff" && b.kind!=="goal"){ renderChartDiff(e,b,c); return; }
   let dayBounds = null;
@@ -2496,7 +2562,7 @@ function renderChart(){
   c.my.forEach(p=>pts.push(p));
   c.bd.forEach(p=>pts.push(p));
   if(!pts.length){
-    ctx.fillStyle = "#6C7B9C"; ctx.font = "13px -apple-system,sans-serif"; ctx.textAlign="center";
+    ctx.fillStyle = CC.sub; ctx.font = "13px -apple-system,sans-serif"; ctx.textAlign="center";
     ctx.fillText("記録が追加されるとグラフを表示します", W/2, H/2);
     state.chartGeo = null;
     return;
@@ -2521,8 +2587,8 @@ function renderChart(){
   const Y = v  => padT + (1-(v-v0)/(v1-v0))*plotH;
 
   /* --- グリッド＆軸 --- */
-  ctx.strokeStyle = "#1D2942"; ctx.lineWidth = 1;
-  ctx.fillStyle = "#6C7B9C"; ctx.font = "10px ui-monospace,monospace";
+  ctx.strokeStyle = CC.grid; ctx.lineWidth = 1;
+  ctx.fillStyle = CC.sub; ctx.font = "10px ui-monospace,monospace";
   const ySteps = 4;
   for(let i=0;i<=ySteps;i++){
     const v = v0 + (v1-v0)*i/ySteps;
@@ -2537,7 +2603,7 @@ function renderChart(){
   /* --- イベント終了線 --- */
   if(e.end && e.end<=t1 && e.end>=t0){
     const x=X(e.end);
-    ctx.strokeStyle="#3A4A6E"; ctx.setLineDash([2,4]);
+    ctx.strokeStyle=CC.end; ctx.setLineDash([2,4]);
     ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -2545,10 +2611,10 @@ function renderChart(){
   /* --- 固定目標ライン（固定目標型ボード） --- */
   if(c.goalMode && c.goal!=null){
     const y = Y(c.goal);
-    ctx.strokeStyle = "#D8B24A"; ctx.lineWidth = 2; ctx.setLineDash([6,4]);
+    ctx.strokeStyle = CC.gold; ctx.lineWidth = 2; ctx.setLineDash([6,4]);
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W-padR, y); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "#D8B24A"; ctx.font = "9px ui-monospace,monospace"; ctx.textAlign = "left";
+    ctx.fillStyle = CC.gold; ctx.font = "9px ui-monospace,monospace"; ctx.textAlign = "left";
     ctx.fillText("目標", padL+4, y-5);
   }
   /* --- 予測線（ボーダー最終点→終了時予測） --- */
@@ -2569,38 +2635,39 @@ function renderChart(){
     /* 安全ラインマーカー */
     if(c.safety!=null){
       const y=Y(c.safety);
-      ctx.strokeStyle="rgba(232,163,61,.65)"; ctx.lineWidth=1.4; ctx.setLineDash([5,4]);
+      ctx.strokeStyle=`color-mix(in srgb, ${CC.warn} 65%, transparent)`; ctx.lineWidth=1.4; ctx.setLineDash([5,4]);
       ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle="#E8A33D"; ctx.font="9px ui-monospace,monospace"; ctx.textAlign="left";
+      ctx.fillStyle=CC.warn; ctx.font="9px ui-monospace,monospace"; ctx.textAlign="left";
       ctx.fillText("安全ライン", padL+4, y-5);
     }
   }
 
   /* --- 系列描画 --- */
-  drawLine(ctx, c.bd, X, Y, "#4C84EE");
-  drawLine(ctx, c.my, X, Y, "#E0424D");
+  drawLine(ctx, c.bd, X, Y, CC.bd);
+  drawLine(ctx, c.my, X, Y, CC.me);
 
   /* --- タップ選択ハイライト（縦線＋その時刻の全系列に丸） --- */
   if(state.chartSel){
     const p = state.chartSel;
     const sx = X(p.ts);
-    ctx.strokeStyle="rgba(233,238,247,.7)"; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+    ctx.strokeStyle=`color-mix(in srgb, ${CC.text} 70%, transparent)`; ctx.lineWidth=1; ctx.setLineDash([2,3]);
     ctx.beginPath(); ctx.moveTo(sx,padT); ctx.lineTo(sx,H-padB); ctx.stroke();
     ctx.setLineDash([]);
     const marks = p.multi && p.multi.length ? p.multi : [p];
     marks.forEach(m=>{
       if(m.v==null) return;
       ctx.beginPath(); ctx.arc(X(m.ts),Y(m.v),6,0,7);
-      ctx.strokeStyle=m.color||"#E9EEF7"; ctx.lineWidth=2; ctx.stroke();
+      ctx.strokeStyle=m.color||CC.text; ctx.lineWidth=2; ctx.stroke();
     });
   }
   state.chartGeo = {X,Y,t0,t1,v0,v1,series:[
-    ...c.my.map(p=>({...p,color:"#E0424D",who:"自分"})),
-    ...c.bd.map(p=>({...p,color:"#4C84EE",who:`${c.tRank}位ボーダー`})),
+    ...c.my.map(p=>({...p,color:CC.me,who:"自分"})),
+    ...c.bd.map(p=>({...p,color:CC.bd,who:`${c.tRank}位ボーダー`})),
   ]};
 }
 function drawLine(ctx, series, X, Y, color){
+  const CC = chartColors();
   if(!series.length) return;
   ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineJoin="round";
   ctx.beginPath();
@@ -3269,7 +3336,37 @@ function saveRewards(){
 }
 
 /* ---------- データ管理 ---------- */
-function openDataModal(){ $("import-text").value=""; openModal("m-data"); }
+function openDataModal(){ $("import-text").value=""; applyTheme(); openModal("m-data"); }
+function setTheme(t){
+  db.settings = db.settings || {};
+  db.settings.theme = t;
+  applyTheme();
+  saveDB();
+  /* 再描画（Canvasの色を取り直す） */
+  if(state.view==="event") renderEvent();
+  else if(state.view==="learn") renderLearn();
+  else renderHome();
+}
+function isLightTheme(){
+  const t = (db.settings && db.settings.theme) || "night";
+  if(t==="paper") return true;
+  if(t==="night") return false;
+  /* auto：端末の設定に従う */
+  try{ return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches; }
+  catch(err){ return false; }
+}
+function applyTheme(){
+  const t = (db.settings && db.settings.theme) || "night";
+  document.body.dataset.theme = t;
+  const seg = $("theme-seg");
+  if(seg) seg.querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.th===t));
+  const light = isLightTheme();
+  const meta = document.getElementById("meta-theme");
+  if(meta) meta.setAttribute("content", light ? "#EDF0F6" : "#0B1220");
+  /* iOSホーム画面アプリのステータスバー文字色を背景に合わせる */
+  const sb = document.getElementById("meta-sbar");
+  if(sb) sb.setAttribute("content", light ? "default" : "black-translucent");
+}
 function exportJSON(){
   const text = JSON.stringify(db, null, 1);
   if(navigator.share){
@@ -3316,6 +3413,7 @@ function lateRate(pr, hours){
   return (1-f)/f;
 }
 function renderLearn(){
+  const CC = chartColors();
   const all = buildProfiles(null);
   const types = [...new Set(all.map(p=>p.type))];
   const chips = $("learn-chips");
@@ -3355,6 +3453,7 @@ function renderLearn(){
   $("learn-stats").innerHTML = out;
 }
 function drawLearnChart(use){
+  const CC = chartColors();
   const cv = $("learn-chart");
   const W = cv.clientWidth || (cv.parentElement.clientWidth-16) || 360, Hh = 280;
   const dpr = window.devicePixelRatio || 1;
@@ -3364,8 +3463,8 @@ function drawLearnChart(use){
   const padL=42, padR=12, padT=12, padB=26;
   const X = p => padL + p*(W-padL-padR);
   const Y = f => padT + (1-f)*(Hh-padT-padB);
-  ctx.strokeStyle="#1D2942"; ctx.lineWidth=1;
-  ctx.fillStyle="#6C7B9C"; ctx.font="10px ui-monospace,monospace";
+  ctx.strokeStyle=CC.grid; ctx.lineWidth=1;
+  ctx.fillStyle=CC.sub; ctx.font="10px ui-monospace,monospace";
   for(let i=0;i<=4;i++){
     const f=i/4, y=Y(f);
     ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
@@ -3384,7 +3483,7 @@ function drawLearnChart(use){
     for(let i=1;i<=40;i++){ const q=i/40; ctx.lineTo(X(q), Y(profileF(pr.curve,q))); }
     ctx.stroke();
   });
-  ctx.strokeStyle="#D8B24A"; ctx.lineWidth=3; ctx.lineJoin="round";
+  ctx.strokeStyle=CC.gold; ctx.lineWidth=3; ctx.lineJoin="round";
   ctx.beginPath(); ctx.moveTo(X(0),Y(0));
   for(let i=1;i<=40;i++){
     const q=i/40;
@@ -3398,6 +3497,18 @@ window.addEventListener("resize", ()=>{
   if(state.evId && state.tab==="chart") renderChart();
   if(!$("view-learn").classList.contains("hidden")) renderLearn();
 });
+applyTheme();
+try{
+  const mq = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)");
+  if(mq && mq.addEventListener) mq.addEventListener("change", ()=>{
+    if(((db.settings&&db.settings.theme)||"night")==="auto"){
+      applyTheme();
+      if(state.view==="event") renderEvent();
+      else if(state.view==="learn") renderLearn();
+      else renderHome();
+    }
+  });
+}catch(err){}
 renderHome();
 </script>
 </body>
