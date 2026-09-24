@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260909.5";
+window.__BUILD__ = "20260924.2";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -676,7 +676,7 @@ select{appearance:none;-webkit-appearance:none;
       <div class="border-inputs" id="r-borders"></div>
       <button class="small-link" onclick="openBoardModal(state.boardId)">ボード設定を編集（種類・順位）</button>
     </div>
-    <button class="fold-toggle" id="r-res-toggle" onclick="toggleFold('r-res-fold','r-res-toggle')">▸ 資源も記録（回復薬・バモ・特効）</button>
+    <button class="fold-toggle" id="r-res-toggle" onclick="toggleFold('r-res-fold','r-res-toggle')">▸ 資源も記録（回復薬・バモ・特効値）</button>
     <div class="fold" id="r-res-fold">
       <div class="grid2">
         <div><label>GP回復薬（100）残</label><input type="number" id="r-gpheal" inputmode="numeric"></div>
@@ -688,7 +688,7 @@ select{appearance:none;-webkit-appearance:none;
       </div>
       <div class="grid2">
         <div><label>バモ残</label><input type="number" id="r-vamo" inputmode="numeric"></div>
-        <div><label>特効値（%）</label><input type="number" id="r-tokko" inputmode="decimal" placeholder="例：480"></div>
+        <div><label>特効値</label><input type="number" id="r-tokko" inputmode="decimal" placeholder="イベントの数値"></div>
       </div>
     </div>
     <label>メモ</label>
@@ -782,9 +782,9 @@ select{appearance:none;-webkit-appearance:none;
     <div class="grip"></div>
     <h2>周回コスト（実測ログ）</h2>
     <div class="m-sub" id="m-lap-board"></div>
-    <div class="m-sub">特効と1周ptをセットで記録すると、特効効率の分析と追撃シミュレーターが使えます。特効が変わったら都度追加してください。</div>
+    <div class="m-sub">特効値と1周ptをセットで記録すると、効率の分析と追撃シミュレーターが使えます。特効値が変わったら都度追加してください。</div>
     <div class="grid2">
-      <div><label>特効値（%）</label><input type="number" id="ll-tokko" inputmode="decimal" placeholder="例：480"></div>
+      <div><label>特効値</label><input type="number" id="ll-tokko" inputmode="decimal" placeholder="イベントの数値"></div>
       <div><label>1周あたり獲得pt</label><input type="number" id="ll-pt" inputmode="numeric" placeholder="例：26000"></div>
     </div>
     <div class="grid2">
@@ -862,6 +862,13 @@ const MEDIA_LIST = [
   "月刊Jクラクラシック",
 ];
 const STATUS_LABEL = {active:"開催中", done:"完了", draft:"下書き"};
+/* 特効の呼び名も単位もイベントで違う（%だったりボルテージという実数だったり）。
+   アプリ側では持たず「特効値」で統一し、単位が要るなら値に含めて入力してもらう */
+function buffFmt(e, v){
+  if(v==null || v==="") return "—";
+  const n = numOrNull(v);
+  return n!=null ? fmt(n) : esc(String(v));
+}
 
 /* ---------- ストア ---------- */
 let db = loadDB();
@@ -1817,7 +1824,7 @@ function renderReview(e){
         <div class="v" style="color:${r.used>0?"var(--me)":r.used<0?"var(--safe)":"var(--sub)"}">${r.used>0?"−":r.used<0?"+":""}${fmt(Math.abs(r.used))}</div>
         <div class="k" style="margin-top:4px">${fmt(r.first)} → ${fmt(r.last)}</div></div>`).join("") + `</div>
       <div class="note">マイナスは消費、プラスは期間中に増えた分です（報酬などで増えると差し引きで増加になります）。</div>`;
-    if(res.tokko) html += `<div class="note">特効：${esc(res.tokko.first)}${res.tokko.last!==res.tokko.first?` → ${esc(res.tokko.last)}`:""}</div>`;
+    if(res.tokko) html += `<div class="note">特効：${buffFmt(e,res.tokko.first)}${res.tokko.last!==res.tokko.first?` → ${buffFmt(e,res.tokko.last)}`:""}</div>`;
   }else{
     html += `<div class="note" style="margin-top:0">資源の記録が${res.nRes}回のため、消費量を計算できませんでした。次回は<b>開始時と終了時の2回</b>だけ資源を記録すると、このイベントに投じたコストが出ます。</div>`;
   }
@@ -2117,8 +2124,8 @@ function renderDash(){
       const simV = numOrNull(state.simV);
       const roi = (simV && simV>0 && dHours!=null) ? (dHours*60)/(simV/1000) : null;
       html += `<div class="card"><h3>追撃シミュレーター（実測${fit.n}点の回帰）</h3>
-        <div style="font-size:13px;margin-bottom:10px">現在 特効${fmt(curTokko)}%・${fmt(lapPt)}pt/周。追いガチャで特効
-          <input type="number" inputmode="decimal" value="${d}" style="width:76px;display:inline-block;padding:6px 8px;margin:0 4px" onchange="state.simD=this.value;renderDash()">% 上げた場合：</div>
+        <div style="font-size:13px;margin-bottom:10px">現在 特効 ${buffFmt(e,curTokko)}・${fmt(lapPt)}pt/周。追いガチャで特効値を
+          <input type="number" inputmode="decimal" value="${d}" style="width:76px;display:inline-block;padding:6px 8px;margin:0 4px" onchange="state.simD=this.value;renderDash()"> 上げた場合：</div>
         <div class="stat-grid">
           <div class="stat"><div class="k">1周あたり（推定）</div><div class="v">${fmt(pt1)}<span class="u">pt</span></div></div>
           <div class="stat"><div class="k">必要周回数</div><div class="v">${fmt(laps)} → ${fmt(laps1)}<span class="u">（−${fmt(dLaps)}周）</span></div></div>
@@ -2129,11 +2136,11 @@ function renderDash(){
           <input type="number" inputmode="numeric" value="${state.simV||""}" placeholder="バモ" style="width:90px;display:inline-block;padding:6px 8px;margin:0 4px" onchange="state.simV=this.value;renderDash()">バモ
           ${roi!=null?` → <b class="num" style="color:var(--gold)">1,000バモあたり ${fmt(roi)}分の周回削減</b>`:""}
         </div>
-        <div class="note">推定は自分の実測ログの回帰に基づきます。特効の上昇幅はガチャ結果次第なので、判断の目安としてください。</div>
+        <div class="note">推定は自分の実測ログの回帰に基づきます。特効値の上昇幅はガチャ結果次第なので、判断の目安としてください。</div>
       </div>`;
     }else if(!fit){
       html += `<div class="card"><h3>追撃シミュレーター</h3>
-        <div class="note">特効の異なる周回実測を2点以上記録すると、「追いガチャで特効を上げたら必要周回がどれだけ減るか」を試算できます。</div>
+        <div class="note">特効値の異なる周回実測を2点以上記録すると、「追いガチャで特効値を上げたら必要周回がどれだけ減るか」を試算できます。</div>
         <button class="small-link" onclick="openLapModal()">実測を追加</button></div>`;
     }
   }
@@ -2179,7 +2186,7 @@ function renderDash(){
         <div class="stat"><div class="k">GP薬総量（フル${fmt(latestResource(b,"gpHeal"))}・ハーフ${fmt(latestResource(b,"gpHealHalf"))}）</div><div class="v">${fmt(latestHealAmount(b,"gp"))}<span class="u">GP分</span></div></div>
         <div class="stat"><div class="k">BP薬総量（フル${fmt(latestResource(b,"bpHeal"))}・ミニ${fmt(latestResource(b,"bpHealMini"))}）</div><div class="v">${fmt(latestHealAmount(b,"bp"))}<span class="u">BP分</span></div></div>
         <div class="stat"><div class="k">バモ</div><div class="v">${fmt(latestResource(b,"vamo"))}</div></div>
-        <div class="stat"><div class="k">特効値</div><div class="v">${lastR.tokko?esc(lastR.tokko)+"%":"—"}</div></div>
+        <div class="stat"><div class="k">特効値</div><div class="v">${buffFmt(e,lastR.tokko)}</div></div>
       </div>
     </div>`;
     /* 資源消費（イベント通算）：最初の記録と最新の記録の差分 */
@@ -2221,7 +2228,11 @@ function setCompareTarget(rank){
   else e.targetRank = rank;
   saveDB(); renderEvent();
 }
-function numOrNull(v){ return (v===null||v===undefined||v==="") ? null : Number(v); }
+function numOrNull(v){
+  if(v===null || v===undefined || v==="") return null;
+  const n = Number(v);
+  return isFinite(n) ? n : null;   /* "480%" のような数値化できない値は null 扱い */
+}
 
 /* ---------- 記録タブ ---------- */
 function renderRecs(){
@@ -2268,7 +2279,7 @@ function renderRecs(){
         ${bdv!=null?`<span class="bd"><b>${tRank}位</b> ${fmt(bdv)}</span>`:""}
         ${my!=null&&bdv!=null?`<span style="color:${my>=bdv?"var(--safe)":"var(--danger)"}">${my>=bdv?"+":"−"}${fmt(Math.abs(my-bdv))}</span>`:""}
         ${r.myRank?`<span>${fmt(r.myRank)}位</span>`:""}
-        ${r.tokko?`<span>特効 ${esc(r.tokko)}%</span>`:""}
+        ${r.tokko?`<span>特効 ${buffFmt(e,r.tokko)}</span>`:""}
         ${resParts.length?`<span>${resParts.join(" / ")}</span>`:""}
       </div>
       ${r.memo?`<div class="memo">${esc(r.memo)}</div>`:""}
@@ -2806,7 +2817,7 @@ function deleteEvent(){
 
 /* ---------- 周回コスト（実測ログ） ---------- */
 function lapFit(b){
-  /* 特効%→1周pt の最小二乗回帰。異なる特効の実測が2点以上で有効 */
+  /* 強化値→1周pt の最小二乗回帰。異なる値の実測が2点以上で有効 */
   const log = (b.lapLog||[]).filter(s=>numOrNull(s.tokko)!=null && numOrNull(s.pt)!=null);
   if(log.length < 2) return null;
   const xs = log.map(s=>Number(s.tokko)), ys = log.map(s=>Number(s.pt));
@@ -2820,6 +2831,7 @@ function lapFit(b){
 function ptAtTokko(fit, t){ return Math.max(1, fit.a + fit.b * t); }
 function openLapModal(){
   const e=ev(), b=board(); if(!b) return;
+
   const lap=b.lap||{}, st=db.settings||{};
   $("m-lap-board").textContent = e.boards.length>1 ? `ボード：${b.name}` : "";
   const lastRec = sortedRecords(b).slice(-1)[0];
@@ -2832,24 +2844,24 @@ function openLapModal(){
   openModal("m-lap");
 }
 function renderLapLog(){
-  const b=board(); if(!b) return;
+  const e=ev(), b=board(); if(!b) return;
   const log = [...(b.lapLog||[])].sort((x,y)=>y.ts-x.ts);
   let html = "";
   const fit = lapFit(b);
   if(fit){
-    html += `<div class="next-rw" style="margin-top:14px">推定：特効 <b>+100%</b> で 1周あたり <b>${fmt(fit.b*100)}pt</b> 増加（実測${fit.n}点の回帰）</div>`;
+    html += `<div class="next-rw" style="margin-top:14px">推定：特効値 <b>+100</b> で 1周あたり <b>${fmt(fit.b*100)}pt</b> 増加（実測${fit.n}点の回帰）</div>`;
   }else if(log.length===1){
-    html += `<div class="note" style="margin-top:12px">特効の異なる実測をもう1点追加すると、特効効率の推定と追撃シミュレーターが使えます。</div>`;
+    html += `<div class="note" style="margin-top:12px">特効値の異なる実測をもう1点追加すると、効率の推定と追撃シミュレーターが使えます。</div>`;
   }
   html += log.map(s=>{
     const eff = (numOrNull(s.pt)!=null && numOrNull(s.gp)) ? `・${fmt(s.pt/s.gp)}pt/GP` : "";
     return `<div style="display:flex;align-items:center;gap:10px;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-top:8px">
-      <span class="num" style="font-size:13px;flex:1">特効${s.tokko??"—"}% → ${fmt(s.pt)}pt/周${s.min?`・${fmt1(s.min)}分`:""}${eff}</span>
+      <span class="num" style="font-size:13px;flex:1">特効 ${buffFmt(e,s.tokko)} → ${fmt(s.pt)}pt/周${s.min?`・${fmt1(s.min)}分`:""}${eff}</span>
       <button style="color:var(--faint);font-size:16px;padding:2px 4px" onclick="deleteLapSample('${s.id}')">×</button>
     </div>`;
   }).join("");
   if(!log.length && numOrNull((b.lap||{}).pt)!=null){
-    html += `<div class="note" style="margin-top:12px">実測ログなし（現在値：${fmt(b.lap.pt)}pt/周）。上のフォームから特効とセットで追加していくと分析できます。</div>`;
+    html += `<div class="note" style="margin-top:12px">実測ログなし（現在値：${fmt(b.lap.pt)}pt/周）。上のフォームから特効値とセットで追加していくと分析できます。</div>`;
   }
   $("lap-log-list").innerHTML = html;
 }
@@ -3180,7 +3192,7 @@ function openRecordModal(recId){
   const othersHasVal = !!(r && r.borders && others.some(rk=>r.borders[rk]!=null && r.borders[rk]!==""));
   setFold("r-borders-fold","r-borders-toggle", othersHasVal, `他の順位のボーダーも記録（${others.length}件）`);
   const resHasVal = !!(r && (["gpHeal","gpHealHalf","bpHeal","bpHealMini","vamo"].some(k=>numOrNull(r[k])!=null) || (r.tokko!=null && r.tokko!=="")));
-  setFold("r-res-fold","r-res-toggle", resHasVal, "資源も記録（回復薬・バモ・特効）");
+  setFold("r-res-fold","r-res-toggle", resHasVal, "資源も記録（回復薬・バモ・特効値）");
   /* デイリー型は枠入力に切替 */
   const isDaily = b.kind==="daily";
   $("r-normal-fields").classList.toggle("hidden", isDaily);
