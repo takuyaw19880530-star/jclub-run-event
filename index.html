@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260924.2";
+window.__BUILD__ = "20260929.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -821,6 +821,15 @@ select{appearance:none;-webkit-appearance:none;
         <button data-th="paper" onclick="setTheme('paper')">ライト</button>
       </div>
     </div>
+    <label>資源の換算（全イベント共通）</label>
+    <div class="grid2">
+      <div><label style="margin-top:0">GP自然回復（/時）</label><input type="number" id="s-gpregen" inputmode="decimal"></div>
+      <div><label style="margin-top:0">BP自然回復（/時）</label><input type="number" id="s-bpregen" inputmode="decimal"></div>
+    </div>
+    <label>GP回復薬フル1個あたりのバモ換算</label>
+    <input type="number" id="s-vamoheal" inputmode="decimal" placeholder="例：50">
+    <div class="note" style="margin-bottom:16px">ここを入れると、状況タブの行動カードで必要なバモ数が出ます。</div>
+    <button class="btn ghost" onclick="saveCommonSettings()" style="margin-bottom:18px">換算設定を保存</button>
     <div class="m-sub">データはこの端末のブラウザ内（localStorage）に保存されます。念のため定期的にバックアップしてください。</div>
     <button class="btn ghost" onclick="exportJSON()">JSONバックアップを書き出す</button>
     <label>バックアップを読み込む（貼り付け）</label>
@@ -1030,6 +1039,36 @@ function median(arr){
   const n=a.length;
   return n%2 ? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2;
 }
+function weightedMedian(items){
+  /* items: [{v, w}]。重みの累積が半分を超えた値を返す（外れ値に強い） */
+  const a = items.filter(x=>isFinite(x.v) && x.w>0).sort((x,y)=>x.v-y.v);
+  if(!a.length) return null;
+  const tot = a.reduce((s,x)=>s+x.w, 0);
+  let acc = 0;
+  for(const x of a){ acc += x.w; if(acc >= tot/2) return x.v; }
+  return a[a.length-1].v;
+}
+/* 順位の近さによる重み。上位ほど終盤の伸びが大きく、下位は緩やかなので、
+   目標順位に近い順位の曲線を重く使う。距離は対数（100位と300位は約3倍の差）で測る */
+const RANK_SIGMA = 0.6;
+/* 記録の密度による重み。予測したい時点pの前後に実測点がなければ、
+   その区間は直線で補間しているだけなので形が信用できない（終盤の急伸を見落とす） */
+const GAP_SCALE = 0.08;
+function densityWeight(curve, p){
+  let lo = 0, hi = 1;          /* 実測点で挟めなければ端点（0と1）まで広がる */
+  curve.forEach(c=>{
+    if(c.p <= p && c.p > lo) lo = c.p;
+    if(c.p >= p && c.p < hi) hi = c.p;
+  });
+  const gap = Math.max(0, hi - lo);
+  return Math.exp(-gap / GAP_SCALE);
+}
+function rankWeight(r, tRank){
+  const a = Number(r), b = Number(tRank);
+  if(!(a>0) || !(b>0)) return 0.05;
+  const d = Math.log(a) - Math.log(b);
+  return Math.max(0.02, Math.exp(-(d*d)/(2*RANK_SIGMA*RANK_SIGMA)));
+}
 function curvePrediction(e, b, tRank){
   /* 過去カーブから終了時ボーダーを推定。学習データがなければ null */
   if(!e.start || !e.end || tRank==null) return null;
@@ -1042,26 +1081,39 @@ function curvePrediction(e, b, tRank){
   const same = all.filter(x=>x.type===e.type);
   const use = same.length ? same : all;
   if(!use.length) return null;
-  const finals = [];
+  /* 各カーブから最終値を逆算し、目標順位に近いカーブほど重く扱う */
+  const items = [];
   use.forEach(pr=>{
     const f = profileF(pr.curve, p);
-    if(f >= 0.02){ const v = last.v / f; if(isFinite(v)) finals.push(v); }
+    if(f < 0.02) return;
+    const v = last.v / f;
+    const w = rankWeight(pr.rank, tRank) * densityWeight(pr.curve, p);
+    if(isFinite(v)) items.push({v, w, rank:Number(pr.rank)});
   });
-  if(!finals.length) return null;
-  finals.sort((a,b)=>a-b);
-  /* グラフ描画用パス：各カーブの推定最終値×形状の中央値を8点サンプリング */
+  if(!items.length) return null;
+  const wsum = items.reduce((s,x)=>s+x.w, 0);
+  if(wsum < 0.05) return null;   /* 使える実測がほぼない → カーブ予測は出さない */
+  const vals = items.filter(x=>x.w>=0.05).map(x=>x.v).sort((a,b)=>a-b);
+  if(!vals.length) vals.push(...items.map(x=>x.v).sort((a,b)=>a-b));
+  /* 実効的に効いている系列（重みの大きい順） */
+  const main = [...items].sort((a,b)=>b.w-a.w).slice(0,3).map(x=>x.rank);
+  /* グラフ描画用パス：同じ重みで各時点の値を加重中央値にする */
   const path = [];
   for(let i=0;i<=8;i++){
     const q = p + (1-p)*i/8;
-    const vs = use.map(pr=>{
+    const vs = [];
+    use.forEach(pr=>{
       const fp = profileF(pr.curve, p);
-      if(fp < 0.02) return null;
-      return (last.v/fp) * profileF(pr.curve, q);
-    }).filter(v=>v!=null && isFinite(v));
-    if(vs.length) path.push({p:q, ts: e.start + q*(e.end-e.start), v: median(vs)});
+      if(fp < 0.02) return;
+      const v = (last.v/fp) * profileF(pr.curve, q);
+      if(isFinite(v)) vs.push({v, w: rankWeight(pr.rank, tRank) * densityWeight(pr.curve, p)});
+    });
+    const wm = weightedMedian(vs);
+    if(wm!=null) path.push({p:q, ts: e.start + q*(e.end-e.start), v: wm});
   }
-  return {pred: median(finals), min: finals[0], max: finals[finals.length-1],
-          n: use.length, sameType: !!same.length, p, path};
+  return {pred: weightedMedian(items), min: vals[0], max: vals[vals.length-1],
+          n: use.length, sameType: !!same.length, p, path,
+          nearRanks: [...new Set(main)].sort((a,b)=>a-b)};
 }
 function maxSpeedOf(series){
   /* 記録区間ごとの時速の最大値（15分未満の間隔はノイズとして除外） */
@@ -2042,7 +2094,8 @@ function renderDash(){
       <div class="stat"><div class="k">線形予測（直近時速）</div><div class="v" style="font-size:14px">${fmt(c.linPred)}</div></div>
       <div class="stat"><div class="k">実績カーブ予測</div><div class="v" style="font-size:14px">${c.curve?fmt(c.curve.pred):"履歴なし"}</div></div>
     </div>
-    ${c.curve?`<div class="note">カーブ予測レンジ：楽観 ${fmt(c.curve.min)} 〜 悲観 ${fmt(c.curve.max)}（過去${c.curve.n}系列、現在の経過率 ${Math.round(c.curve.p*100)}%）。完了イベントが増えるほど精度が上がります。</div>`
+    ${c.curve?`<div class="note">カーブ予測レンジ：楽観 ${fmt(c.curve.min)} 〜 悲観 ${fmt(c.curve.max)}（過去${c.curve.n}系列、現在の経過率 ${Math.round(c.curve.p*100)}%）。${
+      c.curve.nearRanks&&c.curve.nearRanks.length?`目標に近い ${c.curve.nearRanks.map(r=>fmt(r)+"位").join("・")} の推移を重く使っています。`:""}完了イベントが増えるほど精度が上がります。</div>`
       :`<div class="note">実績カーブ予測は、完了イベントのボーダー推移から終盤加速を学習して算出します。イベントを「完了」にして蓄積すると、次回から線形予測より正確な予測が使えます。</div>`}
   </div>`;
   }
@@ -3348,7 +3401,23 @@ function saveRewards(){
 }
 
 /* ---------- データ管理 ---------- */
-function openDataModal(){ $("import-text").value=""; applyTheme(); openModal("m-data"); }
+function openDataModal(){
+  $("import-text").value="";
+  const st = db.settings || {};
+  $("s-gpregen").value  = st.gpRegen ?? "";
+  $("s-bpregen").value  = st.bpRegen ?? "";
+  $("s-vamoheal").value = st.vamoPerHeal ?? "";
+  applyTheme(); openModal("m-data");
+}
+function saveCommonSettings(){
+  db.settings = db.settings || {};
+  db.settings.gpRegen     = numOrNull($("s-gpregen").value);
+  db.settings.bpRegen     = numOrNull($("s-bpregen").value);
+  db.settings.vamoPerHeal = numOrNull($("s-vamoheal").value);
+  saveDB();
+  closeModal("m-data");
+  if(state.view==="event") renderEvent(); else renderHome();
+}
 function setTheme(t){
   db.settings = db.settings || {};
   db.settings.theme = t;
