@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default" id="meta-sbar">
 <meta name="theme-color" content="#0B1220" id="meta-theme">
@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20260929.1";
+window.__BUILD__ = "20261015.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -20,7 +20,7 @@ window.__BUILD__ = "20260929.1";
       .then(function(html){
         var m = html.match(/window\.__BUILD__\s*=\s*"([^"]+)"/);
         var latest = m && m[1];
-        if(latest && latest !== window.__BUILD__){
+        if(latest && /^\d{8}\.\d+$/.test(latest) && (Number(latest.split(".")[0])>Number(window.__BUILD__.split(".")[0]) || (latest.split(".")[0]===window.__BUILD__.split(".")[0] && Number(latest.split(".")[1])>Number(window.__BUILD__.split(".")[1])))){
           var qv = new URLSearchParams(location.search).get("v");
           if(qv !== latest){
             location.replace(location.pathname + "?v=" + encodeURIComponent(latest));
@@ -520,6 +520,7 @@ select{appearance:none;-webkit-appearance:none;
 .remind{background:rgba(232,163,61,.10);border:1px solid rgba(232,163,61,.45);
   border-radius:var(--radius);padding:11px 14px;margin-bottom:14px;
   font-size:12px;line-height:1.7}
+
 </style>
 </head>
 <body>
@@ -676,7 +677,7 @@ select{appearance:none;-webkit-appearance:none;
       <div class="border-inputs" id="r-borders"></div>
       <button class="small-link" onclick="openBoardModal(state.boardId)">ボード設定を編集（種類・順位）</button>
     </div>
-    <button class="fold-toggle" id="r-res-toggle" onclick="toggleFold('r-res-fold','r-res-toggle')">▸ 資源も記録（回復薬・バモ・特効値）</button>
+    <button class="fold-toggle" id="r-res-toggle" onclick="toggleFold('r-res-fold','r-res-toggle')">▸ 資源も記録（回復薬・バモ・特効）</button>
     <div class="fold" id="r-res-fold">
       <div class="grid2">
         <div><label>GP回復薬（100）残</label><input type="number" id="r-gpheal" inputmode="numeric"></div>
@@ -688,7 +689,7 @@ select{appearance:none;-webkit-appearance:none;
       </div>
       <div class="grid2">
         <div><label>バモ残</label><input type="number" id="r-vamo" inputmode="numeric"></div>
-        <div><label>特効値</label><input type="number" id="r-tokko" inputmode="decimal" placeholder="イベントの数値"></div>
+        <div><label>特効値（%）</label><input type="number" id="r-tokko" inputmode="decimal" placeholder="例：480"></div>
       </div>
     </div>
     <label>メモ</label>
@@ -782,9 +783,9 @@ select{appearance:none;-webkit-appearance:none;
     <div class="grip"></div>
     <h2>周回コスト（実測ログ）</h2>
     <div class="m-sub" id="m-lap-board"></div>
-    <div class="m-sub">特効値と1周ptをセットで記録すると、効率の分析と追撃シミュレーターが使えます。特効値が変わったら都度追加してください。</div>
+    <div class="m-sub">特効と1周ptをセットで記録すると、特効効率の分析と追撃シミュレーターが使えます。特効が変わったら都度追加してください。</div>
     <div class="grid2">
-      <div><label>特効値</label><input type="number" id="ll-tokko" inputmode="decimal" placeholder="イベントの数値"></div>
+      <div><label>特効値（%）</label><input type="number" id="ll-tokko" inputmode="decimal" placeholder="例：480"></div>
       <div><label>1周あたり獲得pt</label><input type="number" id="ll-pt" inputmode="numeric" placeholder="例：26000"></div>
     </div>
     <div class="grid2">
@@ -821,15 +822,6 @@ select{appearance:none;-webkit-appearance:none;
         <button data-th="paper" onclick="setTheme('paper')">ライト</button>
       </div>
     </div>
-    <label>資源の換算（全イベント共通）</label>
-    <div class="grid2">
-      <div><label style="margin-top:0">GP自然回復（/時）</label><input type="number" id="s-gpregen" inputmode="decimal"></div>
-      <div><label style="margin-top:0">BP自然回復（/時）</label><input type="number" id="s-bpregen" inputmode="decimal"></div>
-    </div>
-    <label>GP回復薬フル1個あたりのバモ換算</label>
-    <input type="number" id="s-vamoheal" inputmode="decimal" placeholder="例：50">
-    <div class="note" style="margin-bottom:16px">ここを入れると、状況タブの行動カードで必要なバモ数が出ます。</div>
-    <button class="btn ghost" onclick="saveCommonSettings()" style="margin-bottom:18px">換算設定を保存</button>
     <div class="m-sub">データはこの端末のブラウザ内（localStorage）に保存されます。念のため定期的にバックアップしてください。</div>
     <button class="btn ghost" onclick="exportJSON()">JSONバックアップを書き出す</button>
     <label>バックアップを読み込む（貼り付け）</label>
@@ -871,13 +863,6 @@ const MEDIA_LIST = [
   "月刊Jクラクラシック",
 ];
 const STATUS_LABEL = {active:"開催中", done:"完了", draft:"下書き"};
-/* 特効の呼び名も単位もイベントで違う（%だったりボルテージという実数だったり）。
-   アプリ側では持たず「特効値」で統一し、単位が要るなら値に含めて入力してもらう */
-function buffFmt(e, v){
-  if(v==null || v==="") return "—";
-  const n = numOrNull(v);
-  return n!=null ? fmt(n) : esc(String(v));
-}
 
 /* ---------- ストア ---------- */
 let db = loadDB();
@@ -993,35 +978,40 @@ function avgSpeedOf(series){ /* 全体平均時速 */
   return (b.v - a.v) / h;
 }
 /* ---------- 実績カーブ学習（過去イベントのボーダー推移から終盤加速を学習） ---------- */
+const PROFILE_FINAL_GRACE_MS = 15 * 60 * 1000;
+const CURVE_TERMINAL_CUTOFF_P = 0.9995;
+const TROPHY_TERMINAL_HOURS = 6;
+
 function buildProfiles(excludeEvId){
-  /* 終了済みイベントの各ボーダー系列を「経過率p × 最終値比f」の正規化カーブに変換 */
+  /* 終了済みイベントの各ボーダー系列を「経過率p × 最終値比f」の正規化カーブに変換。
+     最終値として使うのは終了15分前以降の記録だけ。 */
   const out = [];
   db.events.forEach(e=>{
     if(e.id===excludeEvId) return;
     if(!e.start || !e.end || e.end<=e.start) return;
-    if(e.end > Date.now()) return; /* 終了済みのみ学習対象 */
+    if(e.end > Date.now()) return;
     (e.boards||[]).forEach(b=>{
-      if(b.kind==="daily" || b.kind==="goal") return; /* デイリー型・固定目標型は学習対象外 */
+      if(b.kind==="daily" || b.kind==="goal") return;
       const ranks = new Set();
       (b.records||[]).forEach(r=>{ if(r.borders) Object.keys(r.borders).forEach(k=>ranks.add(k)); });
       ranks.forEach(rk=>{
         const s = borderSeries(b, rk);
         if(s.length < 3) return;
+        const last = s[s.length-1];
+        if(last.ts < e.end - PROFILE_FINAL_GRACE_MS) return;
+        if(last.v <= 0) return;
         const dur = e.end - e.start;
         const pts = s.map(pt=>({p:(pt.ts-e.start)/dur, v:pt.v})).filter(x=>x.p>0 && x.p<=1.05);
         if(pts.length < 3) return;
-        const last = pts[pts.length-1];
-        if(last.p < 0.9) return;      /* 終盤の記録がない系列は最終値が不明なため除外 */
-        if(last.v <= 0) return;
-        const curve = pts.map(x=>({p:Math.min(x.p,1), f:Math.max(0, Math.min(x.v/last.v, 1))}));
-        out.push({type:e.type, ev:e.name, rank:rk, dur: e.end-e.start, curve});
+        const finalV = last.v;
+        const curve = pts.map(x=>({p:Math.min(x.p,1), f:Math.max(0,Math.min(x.v/finalV,1))}));
+        out.push({type:e.type, ev:e.name, evId:e.id, rank:Number(rk), dur, curve, finalTs:last.ts});
       });
     });
   });
   return out;
 }
 function profileF(curve, p){
-  /* カーブ上の経過率pにおける最終値比fを線形補間（両端は(0,0)(1,1)で固定） */
   if(p<=0) return 0;
   if(p>=1) return 1;
   const pts = [{p:0,f:0}, ...curve, {p:1,f:1}].sort((a,b)=>a.p-b.p);
@@ -1037,83 +1027,80 @@ function profileF(curve, p){
 function median(arr){
   const a=[...arr].sort((x,y)=>x-y);
   const n=a.length;
+  if(!n) return null;
   return n%2 ? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2;
 }
 function weightedMedian(items){
-  /* items: [{v, w}]。重みの累積が半分を超えた値を返す（外れ値に強い） */
-  const a = items.filter(x=>isFinite(x.v) && x.w>0).sort((x,y)=>x.v-y.v);
+  const a=items.filter(x=>isFinite(x.v)&&x.w>0).sort((x,y)=>x.v-y.v);
   if(!a.length) return null;
-  const tot = a.reduce((s,x)=>s+x.w, 0);
-  let acc = 0;
-  for(const x of a){ acc += x.w; if(acc >= tot/2) return x.v; }
+  const tot=a.reduce((s,x)=>s+x.w,0);
+  let acc=0;
+  for(const x of a){ acc+=x.w; if(acc>=tot/2) return x.v; }
   return a[a.length-1].v;
 }
-/* 順位の近さによる重み。上位ほど終盤の伸びが大きく、下位は緩やかなので、
-   目標順位に近い順位の曲線を重く使う。距離は対数（100位と300位は約3倍の差）で測る */
+function weightedQuantile(items,q){
+  const a=items.filter(x=>isFinite(x.v)&&x.w>0).sort((x,y)=>x.v-y.v);
+  if(!a.length) return null;
+  const tot=a.reduce((s,x)=>s+x.w,0), target=tot*q;
+  let acc=0;
+  for(const x of a){ acc+=x.w; if(acc>=target) return x.v; }
+  return a[a.length-1].v;
+}
 const RANK_SIGMA = 0.6;
-/* 記録の密度による重み。予測したい時点pの前後に実測点がなければ、
-   その区間は直線で補間しているだけなので形が信用できない（終盤の急伸を見落とす） */
 const GAP_SCALE = 0.08;
-function densityWeight(curve, p){
-  let lo = 0, hi = 1;          /* 実測点で挟めなければ端点（0と1）まで広がる */
-  curve.forEach(c=>{
-    if(c.p <= p && c.p > lo) lo = c.p;
-    if(c.p >= p && c.p < hi) hi = c.p;
-  });
-  const gap = Math.max(0, hi - lo);
-  return Math.exp(-gap / GAP_SCALE);
+function densityWeight(curve,p){
+  let lo=0, hi=1;
+  curve.forEach(c=>{ if(c.p<=p&&c.p>lo) lo=c.p; if(c.p>=p&&c.p<hi) hi=c.p; });
+  return Math.exp(-Math.max(0,hi-lo)/GAP_SCALE);
 }
-function rankWeight(r, tRank){
-  const a = Number(r), b = Number(tRank);
-  if(!(a>0) || !(b>0)) return 0.05;
-  const d = Math.log(a) - Math.log(b);
-  return Math.max(0.02, Math.exp(-(d*d)/(2*RANK_SIGMA*RANK_SIGMA)));
+function rankWeight(r,tRank){
+  const a=Number(r), b=Number(tRank);
+  if(!(a>0)||!(b>0)) return 0.05;
+  const d=Math.log(a)-Math.log(b);
+  return Math.max(0.02,Math.exp(-(d*d)/(2*RANK_SIGMA*RANK_SIGMA)));
 }
-function curvePrediction(e, b, tRank){
-  /* 過去カーブから終了時ボーダーを推定。学習データがなければ null */
+function curvePrediction(e,b,tRank){
   if(!e.start || !e.end || tRank==null) return null;
-  const bd = borderSeries(b, tRank);
+  const bd=borderSeries(b,tRank);
   if(!bd.length) return null;
-  const last = bd[bd.length-1];
-  const p = (last.ts - e.start)/(e.end - e.start);
-  if(p<=0.02 || p>=0.98) return null;
-  const all = buildProfiles(e.id);
-  const same = all.filter(x=>x.type===e.type);
-  const use = same.length ? same : all;
+  const last=bd[bd.length-1];
+  const p=(last.ts-e.start)/(e.end-e.start);
+  /* 終盤でも学習カーブを止めない。最終確定直前だけ停止。 */
+  if(p<=0.02 || p>=CURVE_TERMINAL_CUTOFF_P) return null;
+  const all=buildProfiles(e.id);
+  const same=all.filter(x=>x.type===e.type);
+  /* トロランは終盤挙動が特殊。履歴ゼロのとき他種カーブを混ぜない。 */
+  const use=e.type==="trophy" ? same : (same.length?same:all);
   if(!use.length) return null;
-  /* 各カーブから最終値を逆算し、目標順位に近いカーブほど重く扱う */
-  const items = [];
+  const items=[];
   use.forEach(pr=>{
-    const f = profileF(pr.curve, p);
-    if(f < 0.02) return;
-    const v = last.v / f;
-    const w = rankWeight(pr.rank, tRank) * densityWeight(pr.curve, p);
-    if(isFinite(v)) items.push({v, w, rank:Number(pr.rank)});
+    const f=profileF(pr.curve,p);
+    if(f<0.02) return;
+    const v=last.v/f;
+    const w=rankWeight(pr.rank,tRank)*densityWeight(pr.curve,p);
+    if(isFinite(v)) items.push({v,w,rank:Number(pr.rank),evId:pr.evId});
   });
-  if(!items.length) return null;
-  const wsum = items.reduce((s,x)=>s+x.w, 0);
-  if(wsum < 0.05) return null;   /* 使える実測がほぼない → カーブ予測は出さない */
-  const vals = items.filter(x=>x.w>=0.05).map(x=>x.v).sort((a,b)=>a-b);
-  if(!vals.length) vals.push(...items.map(x=>x.v).sort((a,b)=>a-b));
-  /* 実効的に効いている系列（重みの大きい順） */
-  const main = [...items].sort((a,b)=>b.w-a.w).slice(0,3).map(x=>x.rank);
-  /* グラフ描画用パス：同じ重みで各時点の値を加重中央値にする */
-  const path = [];
+  if(!items.length || items.reduce((s,x)=>s+x.w,0)<0.05) return null;
+  const pred=weightedMedian(items);
+  const risk80=weightedQuantile(items,0.80);
+  const risk90=weightedQuantile(items,0.90);
+  const path=[];
   for(let i=0;i<=8;i++){
-    const q = p + (1-p)*i/8;
-    const vs = [];
+    const q=p+(1-p)*i/8, vs=[];
     use.forEach(pr=>{
-      const fp = profileF(pr.curve, p);
-      if(fp < 0.02) return;
-      const v = (last.v/fp) * profileF(pr.curve, q);
-      if(isFinite(v)) vs.push({v, w: rankWeight(pr.rank, tRank) * densityWeight(pr.curve, p)});
+      const fp=profileF(pr.curve,p);
+      if(fp<0.02) return;
+      const v=(last.v/fp)*profileF(pr.curve,q);
+      if(isFinite(v)) vs.push({v,w:rankWeight(pr.rank,tRank)*densityWeight(pr.curve,p)});
     });
-    const wm = weightedMedian(vs);
-    if(wm!=null) path.push({p:q, ts: e.start + q*(e.end-e.start), v: wm});
+    const wm=weightedMedian(vs);
+    if(wm!=null) path.push({p:q,ts:e.start+q*(e.end-e.start),v:wm});
   }
-  return {pred: weightedMedian(items), min: vals[0], max: vals[vals.length-1],
-          n: use.length, sameType: !!same.length, p, path,
-          nearRanks: [...new Set(main)].sort((a,b)=>a-b)};
+  const vals=items.map(x=>x.v).sort((a,b)=>a-b);
+  const main=[...items].sort((a,b)=>b.w-a.w).slice(0,3).map(x=>x.rank);
+  return {pred,risk80,risk90,min:vals[0],max:vals[vals.length-1],n:use.length,
+    sameType:!!same.length,sameEventCount:new Set(use.map(x=>x.evId)).size,p,path,
+    nearRanks:[...new Set(main)].sort((a,b)=>a-b)};
 }
 function maxSpeedOf(series){
   /* 記録区間ごとの時速の最大値（15分未満の間隔はノイズとして除外） */
@@ -1284,97 +1271,94 @@ function targetRankOf(e, b){
   return null;
 }
 function calcGoal(e, b){
-  /* 固定目標型：目標pt − 自分 − デイリー報酬見込み で必要量を算出し、自分の時速で到達判定 */
-  const my = mySeries(b);
-  const myLast = my.length ? my[my.length-1].v : null;
-  const mySpd = speedOf(my), myAvg = avgSpeedOf(my), myMaxSpd = maxSpeedOf(my);
-  const rh = remainHours(e);
-  const goal = numOrNull(b.goalPoints);
-  const daily = numOrNull(b.dailyBonus) ?? 0;
-  let pred=null, safety=null, need=null, needSpd=null, status="none",
-      predMy=null, bonusRemain=0, bonusDays=0;
-  if(goal!=null && rh!=null){
-    pred = goal; safety = goal;
-    bonusDays = Math.max(0, Math.floor(rh/24));
-    bonusRemain = daily * bonusDays;
+  const my=mySeries(b);
+  const myLast=my.length?my[my.length-1].v:null;
+  const mySpd=speedOf(my), myAvg=avgSpeedOf(my), myMaxSpd=maxSpeedOf(my);
+  const rh=remainHours(e), goal=numOrNull(b.goalPoints), daily=numOrNull(b.dailyBonus)??0;
+  let pred=null,safety=null,need=null,needSpd=null,status="none",predMy=null,bonusRemain=0,bonusDays=0;
+  if(goal!=null&&rh!=null){
+    pred=goal; safety=goal; bonusDays=Math.max(0,Math.floor(rh/24)); bonusRemain=daily*bonusDays;
     if(myLast!=null){
-      need = Math.max(0, goal - myLast - bonusRemain);
-      needSpd = rh>0 ? need/rh : (need>0 ? Infinity : 0);
-      const spd = mySpd!=null ? mySpd : myAvg;
-      predMy = (spd!=null && rh>0) ? myLast + spd*rh + bonusRemain : myLast + bonusRemain;
-      if(my.length >= 2 || myLast >= goal || rh<=0){
-        status = myLast>=goal ? "safe"
-               : (rh<=0 ? "danger"
-               : (predMy>=goal ? "safe" : (predMy>=goal*0.9 ? "warn" : "danger")));
+      need=Math.max(0,goal-myLast-bonusRemain);
+      needSpd=rh>0?need/rh:(need>0?Infinity:0);
+      const spd=mySpd!=null?mySpd:myAvg;
+      predMy=(spd!=null&&rh>0)?myLast+spd*rh+bonusRemain:myLast+bonusRemain;
+      if(my.length>=2||myLast>=goal||rh<=0){
+        status=myLast>=goal?"safe":(rh<=0?"danger":(predMy>=goal?"safe":(predMy>=goal*0.9?"warn":"danger")));
       }
     }
   }
-  return {goalMode:true, goal, tRank:null, my, bd:[], myLast, bdLast:goal,
-          mySpd, myAvg, myMaxSpd, bdSpd:null, bdAvg:null, rh, margin:0,
-          linPred:null, curve:null, pred, predSrc:null,
-          predMy, bonusRemain, bonusDays, safety, need, needSpd, status};
+  return {goalMode:true,goal,tRank:null,my,bd:[],myLast,bdLast:goal,mySpd,myAvg,myMaxSpd,
+    bdSpd:null,bdAvg:null,rh,margin:0,linPred:null,curve:null,pred,predSrc:null,predMy,
+    bonusRemain,bonusDays,safety,need,needSpd,status,riskPred:null,leaveLine:null,leaveStatus:null,leaveReason:"",profileEventCount:0};
 }
-function calc(e, b, rankOverride){
-  if(b && b.kind==="goal") return calcGoal(e, b);
-  const tRank = rankOverride!=null ? rankOverride : targetRankOf(e, b);
-  const my = mySeries(b);
-  const bd = tRank!=null ? borderSeries(b, tRank) : [];
-  const myLast = my.length ? my[my.length-1].v : null;
-  const bdLast = bd.length ? bd[bd.length-1].v : null;
-  const mySpd  = speedOf(my), myAvg = avgSpeedOf(my);
-  const myMaxSpd = maxSpeedOf(my);
-  const bdSpd  = speedOf(bd), bdAvg = avgSpeedOf(bd);
-  const rh = remainHours(e);
-  const margin = (e.safetyMargin!=null ? Number(e.safetyMargin) : 5) / 100;
-
-  let linPred=null, curve=null, pred=null, predSrc=null,
-      safety=null, need=null, needSpd=null, status="none";
-  if(bdLast!=null && rh!=null && rh>0){
-    if(bdSpd!=null) linPred = bdLast + bdSpd*rh;
-    curve = curvePrediction(e, b, tRank);
-    /* 採用予測：線形と実績カーブの高い方（終盤加速を織り込む安全側） */
-    if(linPred!=null || curve){
-      if(curve && (linPred==null || curve.pred >= linPred)){ pred = curve.pred; predSrc="curve"; }
-      else { pred = linPred; predSrc="linear"; }
-      safety = pred * (1+margin);
+function trophyRecordFreshLimitH(rh){
+  if(rh<=1) return 1/3;
+  if(rh<=3) return 0.5;
+  if(rh<=6) return 1;
+  return 3;
+}
+function calc(e,b,rankOverride){
+  if(b&&b.kind==="goal") return calcGoal(e,b);
+  const tRank=rankOverride!=null?rankOverride:targetRankOf(e,b);
+  const my=mySeries(b), bd=tRank!=null?borderSeries(b,tRank):[];
+  const myLast=my.length?my[my.length-1].v:null;
+  const bdLast=bd.length?bd[bd.length-1].v:null;
+  const bdLastTs=bd.length?bd[bd.length-1].ts:null;
+  const mySpd=speedOf(my), myAvg=avgSpeedOf(my), myMaxSpd=maxSpeedOf(my);
+  const bdSpd=speedOf(bd), bdAvg=avgSpeedOf(bd), rh=remainHours(e);
+  const margin=(e.safetyMargin!=null?Number(e.safetyMargin):5)/100;
+  let linPred=null,curve=null,pred=null,predSrc=null,safety=null,need=null,needSpd=null,status="none";
+  let riskPred=null,leaveLine=null,leaveStatus=null,leaveReason="",profileEventCount=0;
+  if(bdLast!=null&&rh!=null&&rh>0){
+    if(bdSpd!=null&&bdLastTs!=null){
+      /* 直近記録が古い場合も、最後のボーダー記録時刻→終了までを伸ばす。 */
+      const hFromLast=Math.max(0,hoursBetween(bdLastTs,e.end));
+      linPred=bdLast+bdSpd*hFromLast;
+    }
+    curve=curvePrediction(e,b,tRank);
+    if(curve&&(linPred==null||curve.pred>=linPred)){pred=curve.pred;predSrc="curve";}
+    else if(linPred!=null){pred=linPred;predSrc="linear";}
+    if(pred!=null){
+      safety=pred*(1+margin);
       if(myLast!=null){
-        need = Math.max(0, safety - myLast);
-        needSpd = rh>0 ? need/rh : (need>0 ? Infinity : 0);
-        status = myLast >= safety ? "safe" : (myLast >= pred ? "warn" : "danger");
+        need=Math.max(0,safety-myLast);
+        needSpd=rh>0?need/rh:(need>0?Infinity:0);
+        status=myLast>=safety?"safe":(myLast>=pred?"warn":"danger");
       }
     }
-  }else if(bdLast!=null && myLast!=null && rh!=null && rh<=0){
-    /* イベント終了後：最終値で判定 */
-    pred = bdLast; safety = bdLast; need = Math.max(0, bdLast-myLast); needSpd=0;
-    status = myLast >= bdLast ? "safe" : "danger";
+    if(e.type==="trophy"&&rh<=TROPHY_TERMINAL_HOURS){
+      profileEventCount=curve?curve.sameEventCount:0;
+      riskPred=Math.max(linPred??0,curve?.pred??0,curve?.risk80??0)||null;
+      leaveLine=riskPred!=null?riskPred*(1+margin):null;
+      const ageH=bdLastTs!=null?Math.max(0,hoursBetween(bdLastTs,Date.now())):Infinity;
+      const stale=ageH>trophyRecordFreshLimitH(rh);
+      if(profileEventCount<1){
+        leaveStatus="hold";
+        leaveReason="同種トロランの確定終盤データがまだないため、順位だけで離脱OKとは判定しません。";
+      }else if(stale){
+        leaveStatus="hold";
+        leaveReason="最新ボーダー記録が古いため、更新してから離脱判断してください。";
+      }else if(myLast!=null&&leaveLine!=null&&myLast>=leaveLine){
+        leaveStatus="go";
+        leaveReason=`過去トロラン${profileEventCount}開催分の終盤推移と悲観側予測を踏まえた離脱ラインを上回っています。`;
+      }else{
+        leaveStatus="hold";
+        leaveReason="終盤急騰を考えると、ここでプレイを止める安全余裕はまだ不足しています。";
+      }
+    }
+  }else if(bdLast!=null&&myLast!=null&&rh!=null&&rh<=0){
+    pred=bdLast;safety=bdLast;need=Math.max(0,bdLast-myLast);needSpd=0;status=myLast>=bdLast?"safe":"danger";
   }
-  return {tRank, my, bd, myLast, bdLast, mySpd, myAvg, myMaxSpd, bdSpd, bdAvg, rh, margin,
-          linPred, curve, pred, predSrc, safety, need, needSpd, status};
+  return {tRank,my,bd,myLast,bdLast,bdLastTs,mySpd,myAvg,myMaxSpd,bdSpd,bdAvg,rh,margin,
+    linPred,curve,pred,predSrc,safety,need,needSpd,status,riskPred,leaveLine,leaveStatus,leaveReason,profileEventCount};
 }
-const STATUS_TEXT = {safe:"安全圏", warn:"要注意", danger:"ペース不足", none:"データ不足"};
-function calcForRank(e, b, rank){
-  /* 指定順位についてのみ予測を計算（目標順位の比較用）。データなしはnull */
-  const bd = borderSeries(b, rank);
-  if(!bd.length) return null;
-  const my = mySeries(b);
-  const myLast = my.length ? my[my.length-1].v : null;
-  const rh = remainHours(e);
-  const margin = (e.safetyMargin!=null ? Number(e.safetyMargin) : 5)/100;
-  const bdLast = bd[bd.length-1].v, bdSpd = speedOf(bd);
-  let linPred=null, pred=null;
-  if(rh!=null && rh>0){
-    if(bdSpd!=null) linPred = bdLast + bdSpd*rh;
-    const cv = curvePrediction(e, b, rank);
-    if(cv && (linPred==null || cv.pred>=linPred)) pred = cv.pred;
-    else pred = linPred;
-  }else if(rh!=null){
-    pred = bdLast;
-  }
-  if(pred==null) return {rank, bdLast, pred:null, safety:null, need:null, status:"none"};
-  const safety = pred*(1+margin);
-  const need = myLast!=null ? Math.max(0, safety-myLast) : null;
-  const status = myLast==null ? "none" : (myLast>=safety ? "safe" : (myLast>=pred ? "warn" : "danger"));
-  return {rank, bdLast, pred, safety, need, status};
+const STATUS_TEXT={safe:"安全圏",warn:"要注意",danger:"ペース不足",none:"データ不足"};
+function calcForRank(e,b,rank){
+  const c=calc(e,b,rank);
+  if(!c||!c.bd||!c.bd.length) return null;
+  return {rank,bdLast:c.bdLast,pred:c.pred,safety:c.safety,need:c.need,status:c.status,
+    riskPred:c.riskPred,leaveLine:c.leaveLine,leaveStatus:c.leaveStatus};
 }
 
 /* =====================================================
@@ -1394,7 +1378,7 @@ function renderHome(){
         <b style="color:var(--me)">②</b> 気づいたときに「自分のpt」と「ボーダー」を記録する<br>
         <b style="color:var(--me)">③</b> 終了間際に最終値を記録して「完了」にする
       </div>
-      <div class="note">これだけで予測・行動換算・撤退判定・学習はすべて自動で動きます。</div>
+      <div class="note">記録するとボーダーを予測。走れる時間と周回効率を設定すると、あと何分必要か分かります。</div>
       <button class="small-link" onclick="dismissGuide()">閉じる（設定はデータ画面から戻せます）</button>
     </div>`;
   let evs = [...db.events];
@@ -1876,9 +1860,9 @@ function renderReview(e){
         <div class="v" style="color:${r.used>0?"var(--me)":r.used<0?"var(--safe)":"var(--sub)"}">${r.used>0?"−":r.used<0?"+":""}${fmt(Math.abs(r.used))}</div>
         <div class="k" style="margin-top:4px">${fmt(r.first)} → ${fmt(r.last)}</div></div>`).join("") + `</div>
       <div class="note">マイナスは消費、プラスは期間中に増えた分です（報酬などで増えると差し引きで増加になります）。</div>`;
-    if(res.tokko) html += `<div class="note">特効：${buffFmt(e,res.tokko.first)}${res.tokko.last!==res.tokko.first?` → ${buffFmt(e,res.tokko.last)}`:""}</div>`;
+    if(res.tokko) html += `<div class="note">特効：${esc(res.tokko.first)}${res.tokko.last!==res.tokko.first?` → ${esc(res.tokko.last)}`:""}</div>`;
   }else{
-    html += `<div class="note" style="margin-top:0">資源の記録が${res.nRes}回のため、消費量を計算できませんでした。次回は<b>開始時と終了時の2回</b>だけ資源を記録すると、このイベントに投じたコストが出ます。</div>`;
+    html += `<div class="note" style="margin-top:0">資源の記録が${res.nRes}回のため、増減を計算できませんでした。次回は<b>開始時と終了時の2回</b>だけ資源を記録すると、このイベント中の資源増減が分かります。</div>`;
   }
   html += `</div>`;
 
@@ -1995,7 +1979,7 @@ function renderDash(){
 
   /* --- 行動サマリー（いちばん知りたいことを上に） --- */
   if(c.need!=null){
-    const actTitle = c.status==="safe" ? "安全ラインまで残り"
+    const actTitle = c.status==="safe" ? "安全ラインを上回っています"
       : c.status==="danger" ? "追いつくために必要な分" : "安全ラインに乗るために必要な分";
     let trans = "";
     if(laps!=null){
@@ -2031,6 +2015,23 @@ function renderDash(){
       <div class="need"><span class="n">${fmt(c.need)}</span><span class="u">${esc(pn)}</span></div>
       ${trans}${spd}
       ${lapPt?"":`<div class="note" style="margin-top:11px">「1周あたりの獲得pt」を設定すると、必要量を周回数・時間・GP・バモに換算します。<button class="small-link" onclick="openLapModal()">周回コストを設定</button></div>`}
+    </div>`;
+  }
+  /* --- トロラン終盤：順位維持と「ここで止めてよい」を分けて表示 --- */
+  if(c.leaveStatus){
+    const go=c.leaveStatus==="go";
+    const remainLeave=(c.leaveLine!=null&&c.myLast!=null)?Math.max(0,c.leaveLine-c.myLast):null;
+    html += `<div class="card" style="border-color:${go?"var(--safe)":"var(--warn)"}">
+      <h3>トロラン終盤・離脱判定</h3>
+      <div style="font-size:22px;font-weight:800;color:${go?"var(--safe)":"var(--warn)"};margin-bottom:8px">
+        ${go?"離脱OKの目安":"まだ離脱しない"}
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="k">終盤の悲観側予測</div><div class="v">${fmt(c.riskPred)}</div></div>
+        <div class="stat"><div class="k">離脱ライン</div><div class="v">${fmt(c.leaveLine)}</div></div>
+      </div>
+      ${remainLeave!=null&&remainLeave>0?`<div class="note" style="color:var(--warn)">離脱ラインまであと <b class="num">${fmt(remainLeave)}</b> ${esc(pn)}</div>`:""}
+      <div class="note">${esc(c.leaveReason)} 「離脱OK」は順位保証ではなく、以後ほぼ触れない前提で使う保守的な目安です。</div>
     </div>`;
   }
   /* --- 撤退判定 --- */
@@ -2093,9 +2094,10 @@ function renderDash(){
     <div class="stat-grid" style="margin-top:10px">
       <div class="stat"><div class="k">線形予測（直近時速）</div><div class="v" style="font-size:14px">${fmt(c.linPred)}</div></div>
       <div class="stat"><div class="k">実績カーブ予測</div><div class="v" style="font-size:14px">${c.curve?fmt(c.curve.pred):"履歴なし"}</div></div>
+      ${c.riskPred!=null?`<div class="stat"><div class="k">終盤の悲観側予測</div><div class="v" style="font-size:14px">${fmt(c.riskPred)}</div></div>`:""}
+      ${c.leaveLine!=null?`<div class="stat"><div class="k">離脱ライン</div><div class="v" style="font-size:14px">${fmt(c.leaveLine)}</div></div>`:""}
     </div>
-    ${c.curve?`<div class="note">カーブ予測レンジ：楽観 ${fmt(c.curve.min)} 〜 悲観 ${fmt(c.curve.max)}（過去${c.curve.n}系列、現在の経過率 ${Math.round(c.curve.p*100)}%）。${
-      c.curve.nearRanks&&c.curve.nearRanks.length?`目標に近い ${c.curve.nearRanks.map(r=>fmt(r)+"位").join("・")} の推移を重く使っています。`:""}完了イベントが増えるほど精度が上がります。</div>`
+    ${c.curve?`<div class="note">カーブ予測レンジ：楽観 ${fmt(c.curve.min)} 〜 悲観 ${fmt(c.curve.max)}（過去${c.curve.n}系列、現在の経過率 ${Math.round(c.curve.p*100)}%）。${c.curve.nearRanks&&c.curve.nearRanks.length?`目標に近い ${c.curve.nearRanks.map(r=>fmt(r)+"位").join("・")} の推移を重く使っています。`:""}完了イベントが増えるほど精度が上がります。</div>`
       :`<div class="note">実績カーブ予測は、完了イベントのボーダー推移から終盤加速を学習して算出します。イベントを「完了」にして蓄積すると、次回から線形予測より正確な予測が使えます。</div>`}
   </div>`;
   }
@@ -2177,8 +2179,8 @@ function renderDash(){
       const simV = numOrNull(state.simV);
       const roi = (simV && simV>0 && dHours!=null) ? (dHours*60)/(simV/1000) : null;
       html += `<div class="card"><h3>追撃シミュレーター（実測${fit.n}点の回帰）</h3>
-        <div style="font-size:13px;margin-bottom:10px">現在 特効 ${buffFmt(e,curTokko)}・${fmt(lapPt)}pt/周。追いガチャで特効値を
-          <input type="number" inputmode="decimal" value="${d}" style="width:76px;display:inline-block;padding:6px 8px;margin:0 4px" onchange="state.simD=this.value;renderDash()"> 上げた場合：</div>
+        <div style="font-size:13px;margin-bottom:10px">現在 特効${fmt(curTokko)}%・${fmt(lapPt)}pt/周。追いガチャで特効
+          <input type="number" inputmode="decimal" value="${d}" style="width:76px;display:inline-block;padding:6px 8px;margin:0 4px" onchange="state.simD=this.value;renderDash()">% 上げた場合：</div>
         <div class="stat-grid">
           <div class="stat"><div class="k">1周あたり（推定）</div><div class="v">${fmt(pt1)}<span class="u">pt</span></div></div>
           <div class="stat"><div class="k">必要周回数</div><div class="v">${fmt(laps)} → ${fmt(laps1)}<span class="u">（−${fmt(dLaps)}周）</span></div></div>
@@ -2189,11 +2191,11 @@ function renderDash(){
           <input type="number" inputmode="numeric" value="${state.simV||""}" placeholder="バモ" style="width:90px;display:inline-block;padding:6px 8px;margin:0 4px" onchange="state.simV=this.value;renderDash()">バモ
           ${roi!=null?` → <b class="num" style="color:var(--gold)">1,000バモあたり ${fmt(roi)}分の周回削減</b>`:""}
         </div>
-        <div class="note">推定は自分の実測ログの回帰に基づきます。特効値の上昇幅はガチャ結果次第なので、判断の目安としてください。</div>
+        <div class="note">推定は自分の実測ログの回帰に基づきます。特効の上昇幅はガチャ結果次第なので、判断の目安としてください。</div>
       </div>`;
     }else if(!fit){
       html += `<div class="card"><h3>追撃シミュレーター</h3>
-        <div class="note">特効値の異なる周回実測を2点以上記録すると、「追いガチャで特効値を上げたら必要周回がどれだけ減るか」を試算できます。</div>
+        <div class="note">特効の異なる周回実測を2点以上記録すると、「追いガチャで特効を上げたら必要周回がどれだけ減るか」を試算できます。</div>
         <button class="small-link" onclick="openLapModal()">実測を追加</button></div>`;
     }
   }
@@ -2239,7 +2241,7 @@ function renderDash(){
         <div class="stat"><div class="k">GP薬総量（フル${fmt(latestResource(b,"gpHeal"))}・ハーフ${fmt(latestResource(b,"gpHealHalf"))}）</div><div class="v">${fmt(latestHealAmount(b,"gp"))}<span class="u">GP分</span></div></div>
         <div class="stat"><div class="k">BP薬総量（フル${fmt(latestResource(b,"bpHeal"))}・ミニ${fmt(latestResource(b,"bpHealMini"))}）</div><div class="v">${fmt(latestHealAmount(b,"bp"))}<span class="u">BP分</span></div></div>
         <div class="stat"><div class="k">バモ</div><div class="v">${fmt(latestResource(b,"vamo"))}</div></div>
-        <div class="stat"><div class="k">特効値</div><div class="v">${buffFmt(e,lastR.tokko)}</div></div>
+        <div class="stat"><div class="k">特効値</div><div class="v">${lastR.tokko?esc(lastR.tokko)+"%":"—"}</div></div>
       </div>
     </div>`;
     /* 資源消費（イベント通算）：最初の記録と最新の記録の差分 */
@@ -2261,7 +2263,7 @@ function renderDash(){
     if(cons.length){
       html += `<div class="card"><h3>資源消費（イベント通算）</h3>
         <div class="stat-grid">${cons.join("")}</div>
-        <div class="note">最初の記録と最新の記録の差分です。途中の購入・報酬獲得分を含むため目安。<b>開始時・途中・終了時</b>に残数を記録しておくと、完了後に「このイベントの実コスト」として振り返れます。</div>
+        <div class="note">最初の記録と最新の記録の差分です。途中の購入・報酬獲得分を含むため目安。<b>開始時・途中・終了時</b>に残数を記録しておくと、完了後に「このイベントの資源増減」として振り返れます。</div>
       </div>`;
     }
   }
@@ -2281,11 +2283,7 @@ function setCompareTarget(rank){
   else e.targetRank = rank;
   saveDB(); renderEvent();
 }
-function numOrNull(v){
-  if(v===null || v===undefined || v==="") return null;
-  const n = Number(v);
-  return isFinite(n) ? n : null;   /* "480%" のような数値化できない値は null 扱い */
-}
+function numOrNull(v){ return (v===null||v===undefined||v==="") ? null : Number(v); }
 
 /* ---------- 記録タブ ---------- */
 function renderRecs(){
@@ -2332,7 +2330,7 @@ function renderRecs(){
         ${bdv!=null?`<span class="bd"><b>${tRank}位</b> ${fmt(bdv)}</span>`:""}
         ${my!=null&&bdv!=null?`<span style="color:${my>=bdv?"var(--safe)":"var(--danger)"}">${my>=bdv?"+":"−"}${fmt(Math.abs(my-bdv))}</span>`:""}
         ${r.myRank?`<span>${fmt(r.myRank)}位</span>`:""}
-        ${r.tokko?`<span>特効 ${buffFmt(e,r.tokko)}</span>`:""}
+        ${r.tokko?`<span>特効 ${esc(r.tokko)}%</span>`:""}
         ${resParts.length?`<span>${resParts.join(" / ")}</span>`:""}
       </div>
       ${r.memo?`<div class="memo">${esc(r.memo)}</div>`:""}
@@ -2599,6 +2597,7 @@ function renderChart(){
   const cv = $("chart");
   const CC = chartColors();
   const e=ev(), b=board(); let c=calc(e,b, chartRankOf(e,b));
+  if(b.kind==="daily"){ const ctx=cv.getContext("2d"); cv.width=cv.clientWidth*2;cv.height=300*2;ctx.scale(2,2);ctx.fillStyle=CC.sub;ctx.font="13px sans-serif";ctx.textAlign="center";ctx.fillText("日別・枠別の記録は状況タブで確認できます",cv.clientWidth/2,140);state.chartGeo=null;return;}
   if(state.chartMode==="diff" && b.kind!=="goal"){ renderChartDiff(e,b,c); return; }
   let dayBounds = null;
   if(b.kind==="daily"){
@@ -2870,7 +2869,7 @@ function deleteEvent(){
 
 /* ---------- 周回コスト（実測ログ） ---------- */
 function lapFit(b){
-  /* 強化値→1周pt の最小二乗回帰。異なる値の実測が2点以上で有効 */
+  /* 特効%→1周pt の最小二乗回帰。異なる特効の実測が2点以上で有効 */
   const log = (b.lapLog||[]).filter(s=>numOrNull(s.tokko)!=null && numOrNull(s.pt)!=null);
   if(log.length < 2) return null;
   const xs = log.map(s=>Number(s.tokko)), ys = log.map(s=>Number(s.pt));
@@ -2884,7 +2883,6 @@ function lapFit(b){
 function ptAtTokko(fit, t){ return Math.max(1, fit.a + fit.b * t); }
 function openLapModal(){
   const e=ev(), b=board(); if(!b) return;
-
   const lap=b.lap||{}, st=db.settings||{};
   $("m-lap-board").textContent = e.boards.length>1 ? `ボード：${b.name}` : "";
   const lastRec = sortedRecords(b).slice(-1)[0];
@@ -2897,24 +2895,24 @@ function openLapModal(){
   openModal("m-lap");
 }
 function renderLapLog(){
-  const e=ev(), b=board(); if(!b) return;
+  const b=board(); if(!b) return;
   const log = [...(b.lapLog||[])].sort((x,y)=>y.ts-x.ts);
   let html = "";
   const fit = lapFit(b);
   if(fit){
-    html += `<div class="next-rw" style="margin-top:14px">推定：特効値 <b>+100</b> で 1周あたり <b>${fmt(fit.b*100)}pt</b> 増加（実測${fit.n}点の回帰）</div>`;
+    html += `<div class="next-rw" style="margin-top:14px">推定：特効 <b>+100%</b> で 1周あたり <b>${fmt(fit.b*100)}pt</b> 増加（実測${fit.n}点の回帰）</div>`;
   }else if(log.length===1){
-    html += `<div class="note" style="margin-top:12px">特効値の異なる実測をもう1点追加すると、効率の推定と追撃シミュレーターが使えます。</div>`;
+    html += `<div class="note" style="margin-top:12px">特効の異なる実測をもう1点追加すると、特効効率の推定と追撃シミュレーターが使えます。</div>`;
   }
   html += log.map(s=>{
     const eff = (numOrNull(s.pt)!=null && numOrNull(s.gp)) ? `・${fmt(s.pt/s.gp)}pt/GP` : "";
     return `<div style="display:flex;align-items:center;gap:10px;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-top:8px">
-      <span class="num" style="font-size:13px;flex:1">特効 ${buffFmt(e,s.tokko)} → ${fmt(s.pt)}pt/周${s.min?`・${fmt1(s.min)}分`:""}${eff}</span>
+      <span class="num" style="font-size:13px;flex:1">特効${s.tokko??"—"}% → ${fmt(s.pt)}pt/周${s.min?`・${fmt1(s.min)}分`:""}${eff}</span>
       <button style="color:var(--faint);font-size:16px;padding:2px 4px" onclick="deleteLapSample('${s.id}')">×</button>
     </div>`;
   }).join("");
   if(!log.length && numOrNull((b.lap||{}).pt)!=null){
-    html += `<div class="note" style="margin-top:12px">実測ログなし（現在値：${fmt(b.lap.pt)}pt/周）。上のフォームから特効値とセットで追加していくと分析できます。</div>`;
+    html += `<div class="note" style="margin-top:12px">実測ログなし（現在値：${fmt(b.lap.pt)}pt/周）。上のフォームから特効とセットで追加していくと分析できます。</div>`;
   }
   $("lap-log-list").innerHTML = html;
 }
@@ -2978,7 +2976,7 @@ function duplicateEvent(id){
 /* ---------- ボード作成/編集 ---------- */
 const KIND_NOTE = {
   border:"最終順位を競うランキング向け。ボーダーの推移から終了時を予測し、必要pt・撤退判定まで計算します。",
-  goal:"「◯◯ptためて交換」のような固定ライン向け。目標から、毎日もらえる分を差し引いた必要量を計算します。",
+  goal:"「◯◯ptためて交換」のような固定ライン向け。現在の残高と、未受取報酬の見込みから必要量を計算します。",
   daily:"毎日リセットされるランキング向け。その日の記録だけで判定し、日ごとの戦績が残ります。",
 };
 function onBoardKindChange(){
@@ -3000,6 +2998,7 @@ function openBoardModal(mode){
   $("b-target").value = b && b.targetRank ? b.targetRank : "";
   $("b-goal").value = b && b.goalPoints!=null ? b.goalPoints : "";
   $("b-daily").value = b && b.dailyBonus!=null ? b.dailyBonus : "";
+  $("b-daily").disabled=true; $("b-daily").placeholder="状況タブの受取予定で設定";
   $("b-reset").value = b && b.dailyResetHour!=null ? b.dailyResetHour : "0";
   const sl = normSlots(b);
   const opts = mediaOptions(b || {});
@@ -3245,7 +3244,7 @@ function openRecordModal(recId){
   const othersHasVal = !!(r && r.borders && others.some(rk=>r.borders[rk]!=null && r.borders[rk]!==""));
   setFold("r-borders-fold","r-borders-toggle", othersHasVal, `他の順位のボーダーも記録（${others.length}件）`);
   const resHasVal = !!(r && (["gpHeal","gpHealHalf","bpHeal","bpHealMini","vamo"].some(k=>numOrNull(r[k])!=null) || (r.tokko!=null && r.tokko!=="")));
-  setFold("r-res-fold","r-res-toggle", resHasVal, "資源も記録（回復薬・バモ・特効値）");
+  setFold("r-res-fold","r-res-toggle", resHasVal, "資源も記録（回復薬・バモ・特効）");
   /* デイリー型は枠入力に切替 */
   const isDaily = b.kind==="daily";
   $("r-normal-fields").classList.toggle("hidden", isDaily);
@@ -3401,31 +3400,15 @@ function saveRewards(){
 }
 
 /* ---------- データ管理 ---------- */
-function openDataModal(){
-  $("import-text").value="";
-  const st = db.settings || {};
-  $("s-gpregen").value  = st.gpRegen ?? "";
-  $("s-bpregen").value  = st.bpRegen ?? "";
-  $("s-vamoheal").value = st.vamoPerHeal ?? "";
-  applyTheme(); openModal("m-data");
-}
-function saveCommonSettings(){
-  db.settings = db.settings || {};
-  db.settings.gpRegen     = numOrNull($("s-gpregen").value);
-  db.settings.bpRegen     = numOrNull($("s-bpregen").value);
-  db.settings.vamoPerHeal = numOrNull($("s-vamoheal").value);
-  saveDB();
-  closeModal("m-data");
-  if(state.view==="event") renderEvent(); else renderHome();
-}
+function openDataModal(){ $("import-text").value=""; applyTheme(); openModal("m-data"); }
 function setTheme(t){
   db.settings = db.settings || {};
   db.settings.theme = t;
   applyTheme();
   saveDB();
   /* 再描画（Canvasの色を取り直す） */
-  if(state.view==="event") renderEvent();
-  else if(state.view==="learn") renderLearn();
+  if(state.evId!=null) renderEvent();
+  else if(!$("view-learn").classList.contains("hidden")) renderLearn();
   else renderHome();
 }
 function isLightTheme(){
@@ -3559,7 +3542,7 @@ function drawLearnChart(use){
   }
   ctx.lineWidth=1.5;
   use.forEach(pr=>{
-    ctx.strokeStyle="rgba(76,132,238,.5)";
+    ctx.strokeStyle=CC.border || cssv("--border-c");
     ctx.beginPath(); ctx.moveTo(X(0),Y(0));
     for(let i=1;i<=40;i++){ const q=i/40; ctx.lineTo(X(q), Y(profileF(pr.curve,q))); }
     ctx.stroke();
@@ -3584,8 +3567,8 @@ try{
   if(mq && mq.addEventListener) mq.addEventListener("change", ()=>{
     if(((db.settings&&db.settings.theme)||"night")==="auto"){
       applyTheme();
-      if(state.view==="event") renderEvent();
-      else if(state.view==="learn") renderLearn();
+      if(state.evId) renderEvent();
+      else if(!$("view-learn").classList.contains("hidden")) renderLearn();
       else renderHome();
     }
   });
