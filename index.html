@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261016.2";
+window.__BUILD__ = "20261016.3";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -721,7 +721,7 @@ select{appearance:none;-webkit-appearance:none;
         <div><label>現在GP（任意）</label><input type="number" id="r-currentgp" inputmode="numeric" placeholder="例：15"></div>
         <div><label>現在BP（任意）</label><input type="number" id="r-currentbp" inputmode="numeric" placeholder="例：5"></div>
       </div>
-      <div class="note" style="margin-top:6px">自然回復シミュレーションの精度を上げたいときだけ入力。未入力でも今後の自然回復分だけで保守的に計算します。</div>
+      <div class="note" style="margin-top:6px">実績学習の重要項目です。ptと現在GPを2回以上セットで記録すると、固定1周ptではなく実際のpt/GPから終了時を予測します。</div>
       <div class="grid2">
         <div><label>GP回復薬（100）残</label><input type="number" id="r-gpheal" inputmode="numeric"></div>
         <div><label>GPハーフ（50）残</label><input type="number" id="r-gphealhalf" inputmode="numeric"></div>
@@ -1041,6 +1041,60 @@ function progressPerPointEstimate(b){
   }
   return null;
 }
+function medianNum(xs){
+  const a=xs.filter(Number.isFinite).sort((x,y)=>x-y); if(!a.length) return null;
+  const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2;
+}
+function quantileNum(xs,q){
+  const a=xs.filter(Number.isFinite).sort((x,y)=>x-y); if(!a.length) return null;
+  const pos=(a.length-1)*q, lo=Math.floor(pos), hi=Math.ceil(pos);
+  return lo===hi?a[lo]:a[lo]+(a[hi]-a[lo])*(pos-lo);
+}
+function naturalLearningEstimate(e,b){
+  const st=db.settings||{}, regen=numOrNull(st.gpRegen), rh=remainHours(e);
+  const recs=sortedRecords(b).filter(r=>numOrNull(r.myPoints)!=null);
+  if(regen==null||rh==null||recs.length<2) return {ok:false,reason:"GP自然回復/時と、pt記録が2回以上必要です。",samples:[]};
+  const samples=[];
+  for(let i=1;i<recs.length;i++){
+    const a=recs[i-1], z=recs[i];
+    const p0=numOrNull(a.myPoints), p1=numOrNull(z.myPoints);
+    const g0=numOrNull(a.currentGp), g1=numOrNull(z.currentGp);
+    if(p0==null||p1==null||g0==null||g1==null||p1<=p0) continue;
+    const h=(z.ts-a.ts)/3600000;
+    if(!(h>0.03&&h<=24)) continue;
+    /* 薬残数が両方記録され、減っていた区間は学習から除外 */
+    const full0=numOrNull(a.gpHeal),full1=numOrNull(z.gpHeal),half0=numOrNull(a.gpHealHalf),half1=numOrNull(z.gpHealHalf);
+    const knownHeal=full0!=null&&full1!=null&&half0!=null&&half1!=null;
+    if(knownHeal&&(full1<full0||half1<half0)) continue;
+    const available=Math.max(0,g0+regen*h);
+    const used=available-g1;
+    if(!(used>0.5)) continue;
+    const dp=p1-p0;
+    const eff=dp/used;
+    if(!(eff>0&&Number.isFinite(eff))) continue;
+    const consumeRatio=Math.max(0.05,Math.min(1,used/Math.max(1,available)));
+    samples.push({from:a,to:z,h,dp,used,eff,consumeRatio,confirmedNoHeal:knownHeal});
+  }
+  if(!samples.length) return {ok:false,reason:"ptと現在GPを2回以上セットで記録すると、実績から学習します。",samples};
+  const recent=samples.slice(-6);
+  const eff=medianNum(recent.map(x=>x.eff));
+  const useRatio=medianNum(recent.map(x=>x.consumeRatio));
+  const lowRatio=recent.length>=3?quantileNum(recent.map(x=>x.consumeRatio),.25):Math.max(.35,useRatio*.8);
+  const last=recs[recs.length-1], pLast=numOrNull(last.myPoints);
+  let curGp=numOrNull(last.currentGp);
+  if(curGp==null){
+    for(let i=recs.length-1;i>=0;i--){ const v=numOrNull(recs[i].currentGp); if(v!=null){curGp=v;break;} }
+  }
+  curGp=curGp??0;
+  const futureGp=Math.max(0,curGp+regen*rh);
+  const theoretical=Math.round(pLast+futureGp*eff);
+  const realistic=Math.round(pLast+futureGp*eff*useRatio);
+  const conservative=Math.round(pLast+futureGp*eff*lowRatio);
+  const half=Math.round(realistic+50*eff);
+  const full=Math.round(realistic+100*eff);
+  return {ok:true,samples:recent,eff,useRatio,lowRatio,pLast,curGp,futureGp,theoretical,realistic,conservative,half,full,
+    confirmed:recent.filter(x=>x.confirmedNoHeal).length};
+}
 function resourceStrategyHtml(e,b,c){
   if(!e||!b||(e.strategyMode||"rank")==="rank") return "";
   const recs=sortedRecords(b), last=recs.length?recs[recs.length-1]:null;
@@ -1048,71 +1102,47 @@ function resourceStrategyHtml(e,b,c){
   const rank=last?numOrNull(last.myRank):null, prog=latestProgressValue(b);
   const nextCum=nextCumulativeReward(e,pLast), nextMil=nextMilestoneReward(e,prog);
   const tier=rankRewardTier(e,rank), better=nextBetterRankTier(e,rank);
-  const lap=b.lap||{}, rh=remainHours(e), st=db.settings||{};
-  const lapPt=numOrNull(lap.pt), lapGp=numOrNull(lap.gp), lapBp=numOrNull(lap.bp);
-  const gpRegen=numOrNull(st.gpRegen), bpRegen=numOrNull(st.bpRegen);
-  const curGp=latestResource(b,"currentGp"), curBp=latestResource(b,"currentBp");
-  const canGp=pLast!=null&&lapPt&&lapGp&&gpRegen!=null&&rh!=null;
-  const needsBp=lapBp!=null&&lapBp>0;
-  const canBp=!needsBp || (bpRegen!=null&&rh!=null);
-  let sim=null;
-  if(canGp&&canBp){
-    const futureGp=Math.max(0,(curGp||0)+gpRegen*rh);
-    const futureBp=needsBp?Math.max(0,(curBp||0)+bpRegen*rh):Infinity;
-    const lapsBy=(gp,bp)=>Math.max(0,Math.floor(Math.min(gp/lapGp,needsBp?bp/lapBp:Infinity)));
-    const naturalLaps=lapsBy(futureGp,futureBp);
-    const halfLaps=lapsBy(futureGp+50,futureBp);
-    const fullLaps=lapsBy(futureGp+100,futureBp);
-    const naturalPoints=pLast+naturalLaps*lapPt;
-    const halfPoints=pLast+halfLaps*lapPt;
-    const fullPoints=pLast+fullLaps*lapPt;
-    sim={futureGp,futureBp,naturalLaps,halfLaps,fullLaps,naturalPoints,halfPoints,fullPoints};
-    const pe=progressPerPointEstimate(b);
-    if(pe&&prog!=null){
-      const predict=v=>Math.max(prog,Math.floor(prog+Math.max(0,v-pLast)*pe.rate));
-      sim.progressRate=pe.rate;
-      sim.naturalProgress=predict(naturalPoints);
-      sim.halfProgress=predict(halfPoints);
-      sim.fullProgress=predict(fullPoints);
-    }
-  }
+  const rh=remainHours(e);
+  const learn=naturalLearningEstimate(e,b);
   let note="バモは温存し、自然回復と報酬回収を優先します。";
   if(better&&rank!=null){
     note+=` 次のランキング報酬帯は${fmt(better.minRank)}〜${fmt(better.maxRank)}位（あと約${fmt(Math.max(0,rank-better.maxRank))}順位改善）。`;
     if(rh!=null&&rh>24) note+=" まだ終盤ではないため、順位維持目的の薬投入は急がない判定です。";
   }
   let simHtml="";
-  if(sim){
-    const natReach=cumulativeReachAt(e,sim.naturalPoints), fullReach=cumulativeReachAt(e,sim.fullPoints);
-    const extraHalf=rewardsBetween(e,sim.naturalPoints,sim.halfPoints), extraFull=rewardsBetween(e,sim.naturalPoints,sim.fullPoints);
+  if(learn.ok){
+    const realReach=cumulativeReachAt(e,learn.realistic), fullReach=cumulativeReachAt(e,learn.full);
+    const extraHalf=rewardsBetween(e,learn.realistic,learn.half), extraFull=rewardsBetween(e,learn.realistic,learn.full);
     const line=r=>r?`${fmt(r.points)}：${esc(r.label)}`:"該当なし";
     const extraText=xs=>xs.length?xs.slice(0,3).map(r=>`${fmt(r.points)} ${esc(r.label)}`).join(" / ")+(xs.length>3?` ほか${xs.length-3}件`:""):"追加報酬なし";
     let progHtml="";
-    if(sim.naturalProgress!=null){
-      const n=milestoneReachAt(e,sim.naturalProgress), f=milestoneReachAt(e,sim.fullProgress);
-      progHtml=`<div class="sim-progress"><b>${esc(e.progressLabel||"固有メーター")}予測（実績比）</b><br>自然回復：約${fmt(sim.naturalProgress)}${n.top?` → ${fmt(n.top.value)} ${esc(n.top.label)}`:""}<br>GP薬フル1本：約${fmt(sim.fullProgress)}${f.top?` → ${fmt(f.top.value)} ${esc(f.top.label)}`:""}</div>`;
+    const pe=progressPerPointEstimate(b);
+    if(pe&&prog!=null){
+      const predict=v=>Math.max(prog,Math.floor(prog+Math.max(0,v-pLast)*pe.rate));
+      const rp=predict(learn.realistic), fp=predict(learn.full);
+      const nr=milestoneReachAt(e,rp), fr=milestoneReachAt(e,fp);
+      progHtml=`<div class="sim-progress"><b>${esc(e.progressLabel||"固有メーター")}予測（実績比）</b><br>現実予測：約${fmt(rp)}${nr.top?` → ${fmt(nr.top.value)} ${esc(nr.top.label)}`:""}<br>GP薬フル1本：約${fmt(fp)}${fr.top?` → ${fmt(fr.top.value)} ${esc(fr.top.label)}`:""}</div>`;
     }else if(e.progressLabel){
-      progHtml=`<div class="note" style="margin-top:8px">${esc(e.progressLabel)}の予測は、<b>ptと${esc(e.progressLabel)}を2回以上セットで記録</b>すると実績比から表示します。</div>`;
+      progHtml=`<div class="note" style="margin-top:8px">${esc(e.progressLabel)}の予測は、<b>ptと${esc(e.progressLabel)}を2回以上セットで記録</b>すると表示します。</div>`;
     }
     simHtml=`<div class="sim-box">
-      <div class="sim-title">自然回復・薬1本シミュレーション</div>
+      <div class="sim-title">実績学習による自然回復予測</div>
       <div class="sim-grid">
-        <div class="sim-col"><div class="k">薬0本</div><div class="big">${fmt(sim.naturalPoints)} pt</div><div class="sub">${fmt(sim.naturalLaps)}周 / 到達 ${line(natReach.top)}</div></div>
-        <div class="sim-col"><div class="k">GPハーフ1本</div><div class="big">${fmt(sim.halfPoints)} pt</div><div class="sub">${fmt(sim.halfLaps)}周 / ${extraText(extraHalf)}</div></div>
-        <div class="sim-col"><div class="k">GPフル1本</div><div class="big">${fmt(sim.fullPoints)} pt</div><div class="sub">${fmt(sim.fullLaps)}周 / ${extraText(extraFull)}</div></div>
+        <div class="sim-col"><div class="k">控えめ</div><div class="big">${fmt(learn.conservative)} pt</div><div class="sub">実績の低めのGP消化率を採用</div></div>
+        <div class="sim-col"><div class="k">現実予測</div><div class="big">${fmt(learn.realistic)} pt</div><div class="sub">到達 ${line(realReach.top)}</div></div>
+        <div class="sim-col"><div class="k">使い切り上限</div><div class="big">${fmt(learn.theoretical)} pt</div><div class="sub">自然回復GPを溢れなく消化</div></div>
       </div>
-      <div class="sim-judge">${extraFull.length?`GP薬フル1本で自然回復のみより <b>${extraFull.length}件</b> 多く累計報酬に届く見込み。最上位は <b>${line(fullReach.top)}</b>。`:`現時点ではGP薬フル1本を追加しても、累計報酬の到達段階は変わらない見込み。`}</div>
+      <div class="sim-progress"><b>学習状況</b><br>実測 ${learn.samples.length}区間 ／ 中央効率 ${fmt(Math.round(learn.eff))} pt/GP ／ GP消化率 約${fmt1(learn.useRatio*100)}%${learn.confirmed?` ／ 薬残数で未使用確認 ${learn.confirmed}区間`:""}</div>
+      <div class="sim-grid" style="margin-top:10px">
+        <div class="sim-col"><div class="k">GPハーフ1本</div><div class="big">${fmt(learn.half)} pt</div><div class="sub">${extraText(extraHalf)}</div></div>
+        <div class="sim-col"><div class="k">GPフル1本</div><div class="big">${fmt(learn.full)} pt</div><div class="sub">${extraText(extraFull)}</div></div>
+      </div>
+      <div class="sim-judge">${extraFull.length?`GP薬フル1本で現実予測より <b>${extraFull.length}件</b> 多く累計報酬に届く見込み。最上位は <b>${line(fullReach.top)}</b>。`:`現時点ではGP薬フル1本を足しても、累計報酬の到達段階は変わらない見込み。`}</div>
       ${progHtml}
-      <div class="note" style="margin-top:8px">自然回復を溢れさせず使い切る前提の概算です。現在GP/BPを記録していない場合は0として保守的に計算します。</div>
+      <div class="note" style="margin-top:8px">固定の「1周pt」ではなく、<b>実際のpt増加・現在GP・経過時間</b>からpt/GPを学習します。カプセル・抽選・イベント固有ボーナスも結果のptに含まれるため、イベントを問わず実態に近づきます。GPが長時間満タンだった区間は効率を控えめに見積もる方向に働きます。</div>
     </div>`;
   }else{
-    const miss=[];
-    if(pLast==null) miss.push("現在pt");
-    if(!lapPt) miss.push("1周pt");
-    if(!lapGp) miss.push("1周GP");
-    if(gpRegen==null) miss.push("GP自然回復/時");
-    if(needsBp&&bpRegen==null) miss.push("BP自然回復/時");
-    simHtml=`<div class="sim-box"><div class="sim-title">自然回復・薬1本シミュレーション</div><div class="note" style="margin-top:0">${miss.length?`あと <b>${miss.map(esc).join("・")}</b> を設定すると計算できます。`:"計算条件が不足しています。"}</div><button class="small-link" onclick="openLapModal()">周回コスト・自然回復を設定</button></div>`;
+    simHtml=`<div class="sim-box"><div class="sim-title">実績学習による自然回復予測</div><div class="note" style="margin-top:0">${esc(learn.reason)}<br><b>クイック記録で「現在GP」も一緒に入れる</b>と、固定1周ptに頼らず自動学習します。</div></div>`;
   }
   return `<div class="card strategy-card">
     <div class="strategy-head"><h3 style="margin:0">資源回収ナビ</h3><span class="mode">${esc(strategyName(e.strategyMode))}</span></div>
@@ -1122,9 +1152,9 @@ function resourceStrategyHtml(e,b,c){
       <div class="strategy-item"><div class="k">次の累計報酬</div><div class="v">${nextCum?`${fmt(nextCum.points)} / ${esc(nextCum.label)}`:"登録なし・完走"}</div></div>
       <div class="strategy-item"><div class="k">${esc(e.progressLabel||"イベント固有メーター")}</div><div class="v">${prog!=null?fmt(prog):"—"}${nextMil?` → 次 ${fmt(nextMil.value)}`:""}</div></div>
       ${better?`<div class="strategy-item"><div class="k">次の上位報酬帯</div><div class="v">${fmt(better.minRank)}〜${fmt(better.maxRank)}位</div></div>`:""}
-      ${sim?`<div class="strategy-item"><div class="k">自然回復だけの概算</div><div class="v">${fmt(sim.naturalPoints)} pt</div></div>`:""}
+      ${learn.ok?`<div class="strategy-item"><div class="k">自然回復・現実予測</div><div class="v">${fmt(learn.realistic)} pt</div></div>`:""}
     </div>
-    <div class="strategy-note">${note}${nextMil?` 次の固有報酬は <b>${fmt(nextMil.value)}：${esc(nextMil.label)}</b>。`:""}${sim&&nextCum?` 自然回復概算で次の累計報酬${sim.naturalPoints>=nextCum.points?"まで届く見込みです。":"には届かない見込みです。"} `:""}</div>
+    <div class="strategy-note">${note}${nextMil?` 次の固有報酬は <b>${fmt(nextMil.value)}：${esc(nextMil.label)}</b>。`:""}${learn.ok&&nextCum?` 実績学習の現実予測で次の累計報酬${learn.realistic>=nextCum.points?"まで届く見込みです。":"には届かない見込みです。"} `:""}</div>
     ${simHtml}
   </div>`;
 }
@@ -3344,8 +3374,8 @@ function quickBarHtml(e, b, c){
       <button class="go" onclick="quickSave()">記録</button>
     </div>
     ${extra}
-    ${e.progressLabel?`<div class="qmore" style="display:flex;margin-top:8px"><div class="f" style="flex:1"><label>${esc(e.progressLabel)}</label><input type="number" inputmode="numeric" id="q-special" placeholder="${latestProgressValue(b)!=null?`前回 ${fmt(latestProgressValue(b))}`:"—"}"></div></div>`:""}
-    <div class="hint">${extra?"上下の順位も入れておくと、グラフで比べられます。":"資源・メモ・他の順位も入れたいときは、下の「くわしく記録」から。"}</div>
+    ${(e.strategyMode||"rank")!=="rank"?`<div class="qmore" style="display:flex;margin-top:8px;gap:8px"><div class="f" style="flex:1"><label>現在GP</label><input type="number" inputmode="numeric" id="q-gp" placeholder="${latestResource(b,"currentGp")!=null?`前回 ${fmt(latestResource(b,"currentGp"))}`:"例：15"}"></div>${e.progressLabel?`<div class="f" style="flex:1"><label>${esc(e.progressLabel)}</label><input type="number" inputmode="numeric" id="q-special" placeholder="${latestProgressValue(b)!=null?`前回 ${fmt(latestProgressValue(b))}`:"—"}"></div>`:""}</div>`:(e.progressLabel?`<div class="qmore" style="display:flex;margin-top:8px"><div class="f" style="flex:1"><label>${esc(e.progressLabel)}</label><input type="number" inputmode="numeric" id="q-special" placeholder="${latestProgressValue(b)!=null?`前回 ${fmt(latestProgressValue(b))}`:"—"}"></div></div>`:"")}
+    <div class="hint">${(e.strategyMode||"rank")!=="rank"?"現在GPも一緒に入れると、イベント固有ボーナス込みのpt/GPを自動学習します。":(extra?"上下の順位も入れておくと、グラフで比べられます。":"資源・メモ・他の順位も入れたいときは、下の「くわしく記録」から。")}</div>
   </div>`;
 }
 function quickSave(){
@@ -3372,6 +3402,7 @@ function quickSave(){
   const myRank = numOrNull(($("q-rank")||{}).value);
   const bd = numOrNull(($("q-bd")||{}).value);
   const progressValue = numOrNull(($("q-special")||{}).value);
+  const currentGp = numOrNull(($("q-gp")||{}).value);
   const extras = {};
   (b.borderRanks||[]).forEach(r=>{
     const v = numOrNull(($("q-bd-"+r)||{}).value);
@@ -3380,7 +3411,7 @@ function quickSave(){
   if(my==null && myRank==null && bd==null && progressValue==null && !Object.keys(extras).length){
     alert("数字を入力してから「記録」を押してください。"); return;
   }
-  const rec = {id:uid(), ts:Date.now(), myPoints:my, myRank, progressValue, borders:{}, memo:""};
+  const rec = {id:uid(), ts:Date.now(), myPoints:my, myRank, progressValue, currentGp, borders:{}, memo:""};
   const tRank = targetRankOf(e, b);
   if(bd!=null && tRank!=null) rec.borders[tRank] = bd;
   Object.entries(extras).forEach(([r,v])=>{ rec.borders[r] = v; });
