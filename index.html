@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261016.1";
+window.__BUILD__ = "20261016.2";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -412,6 +412,15 @@ canvas{display:block;width:100%;touch-action:manipulation}
 .strategy-item{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
 .strategy-item .k{font-size:10px;color:var(--faint);margin-bottom:3px}.strategy-item .v{font-size:14px;font-weight:800;line-height:1.35;word-break:break-word}
 .strategy-note{font-size:11px;color:var(--sub);line-height:1.65;margin-top:10px}.strategy-note b{color:var(--text)}
+.sim-box{margin-top:14px;padding:13px;border:1px solid color-mix(in srgb,var(--safe) 34%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--safe) 5%,var(--panel2))}
+.sim-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:10px}
+.sim-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sim-col{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px;min-width:0}
+.sim-col .k{font-size:10px;color:var(--sub);margin-bottom:5px}
+.sim-col .big{font-family:var(--mono);font-size:15px;font-weight:800;color:var(--text);word-break:break-word}
+.sim-col .sub{font-size:10.5px;line-height:1.55;color:var(--sub);margin-top:5px;word-break:break-word}
+.sim-judge,.sim-progress{font-size:11.5px;line-height:1.7;color:var(--sub);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+@media(max-width:430px){.sim-grid{grid-template-columns:1fr}.sim-col{display:grid;grid-template-columns:86px 92px 1fr;gap:8px;align-items:start}.sim-col .k,.sim-col .big,.sim-col .sub{margin:0}}
 .rw-tools{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 12px}
 .rw-tools button{font-size:11px;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--sub)}
 
@@ -709,6 +718,11 @@ select{appearance:none;-webkit-appearance:none;
     <button class="fold-toggle" id="r-res-toggle" onclick="toggleFold('r-res-fold','r-res-toggle')">▸ 資源も記録（回復薬・バモ・特効）</button>
     <div class="fold" id="r-res-fold">
       <div class="grid2">
+        <div><label>現在GP（任意）</label><input type="number" id="r-currentgp" inputmode="numeric" placeholder="例：15"></div>
+        <div><label>現在BP（任意）</label><input type="number" id="r-currentbp" inputmode="numeric" placeholder="例：5"></div>
+      </div>
+      <div class="note" style="margin-top:6px">自然回復シミュレーションの精度を上げたいときだけ入力。未入力でも今後の自然回復分だけで保守的に計算します。</div>
+      <div class="grid2">
         <div><label>GP回復薬（100）残</label><input type="number" id="r-gpheal" inputmode="numeric"></div>
         <div><label>GPハーフ（50）残</label><input type="number" id="r-gphealhalf" inputmode="numeric"></div>
       </div>
@@ -1000,6 +1014,33 @@ function nextCumulativeReward(e, points){
 function nextMilestoneReward(e, value){
   const v=numOrNull(value); return [...(e.milestoneRewards||[])].sort((a,b)=>a.value-b.value).find(r=>!r.done&&(v==null||r.value>v))||null;
 }
+function cumulativeReachAt(e, points){
+  const p=numOrNull(points), all=[...(e.rewards||[])].sort((a,b)=>a.points-b.points);
+  if(p==null) return {top:null,next:null,reached:[]};
+  const reached=all.filter(r=>r.points<=p);
+  return {top:reached.length?reached[reached.length-1]:null,next:all.find(r=>r.points>p)||null,reached};
+}
+function milestoneReachAt(e, value){
+  const v=numOrNull(value), all=[...(e.milestoneRewards||[])].sort((a,b)=>a.value-b.value);
+  if(v==null) return {top:null,next:null,reached:[]};
+  const reached=all.filter(r=>r.value<=v);
+  return {top:reached.length?reached[reached.length-1]:null,next:all.find(r=>r.value>v)||null,reached};
+}
+function rewardsBetween(e, fromPoints, toPoints){
+  const a=numOrNull(fromPoints), z=numOrNull(toPoints);
+  if(a==null||z==null||z<=a) return [];
+  return [...(e.rewards||[])].filter(r=>r.points>a&&r.points<=z).sort((x,y)=>x.points-y.points);
+}
+function progressPerPointEstimate(b){
+  const a=sortedRecords(b).filter(r=>numOrNull(r.myPoints)!=null&&numOrNull(r.progressValue)!=null);
+  if(a.length<2) return null;
+  for(let i=a.length-1;i>0;i--){
+    const dp=Number(a[i].myPoints)-Number(a[i-1].myPoints);
+    const dm=Number(a[i].progressValue)-Number(a[i-1].progressValue);
+    if(dp>0&&dm>=0) return {rate:dm/dp,from:a[i-1],to:a[i]};
+  }
+  return null;
+}
 function resourceStrategyHtml(e,b,c){
   if(!e||!b||(e.strategyMode||"rank")==="rank") return "";
   const recs=sortedRecords(b), last=recs.length?recs[recs.length-1]:null;
@@ -1007,17 +1048,71 @@ function resourceStrategyHtml(e,b,c){
   const rank=last?numOrNull(last.myRank):null, prog=latestProgressValue(b);
   const nextCum=nextCumulativeReward(e,pLast), nextMil=nextMilestoneReward(e,prog);
   const tier=rankRewardTier(e,rank), better=nextBetterRankTier(e,rank);
-  const lap=b.lap||{}, rh=remainHours(e), gpRegen=numOrNull((db.settings||{}).gpRegen);
-  const lapPt=numOrNull(lap.pt), lapGp=numOrNull(lap.gp);
-  let natural=null;
-  if(pLast!=null&&lapPt&&lapGp&&gpRegen!=null&&rh!=null){
-    const freeGp=Math.max(0,gpRegen*rh), freeLaps=Math.floor(freeGp/lapGp);
-    natural={points:pLast+freeLaps*lapPt};
+  const lap=b.lap||{}, rh=remainHours(e), st=db.settings||{};
+  const lapPt=numOrNull(lap.pt), lapGp=numOrNull(lap.gp), lapBp=numOrNull(lap.bp);
+  const gpRegen=numOrNull(st.gpRegen), bpRegen=numOrNull(st.bpRegen);
+  const curGp=latestResource(b,"currentGp"), curBp=latestResource(b,"currentBp");
+  const canGp=pLast!=null&&lapPt&&lapGp&&gpRegen!=null&&rh!=null;
+  const needsBp=lapBp!=null&&lapBp>0;
+  const canBp=!needsBp || (bpRegen!=null&&rh!=null);
+  let sim=null;
+  if(canGp&&canBp){
+    const futureGp=Math.max(0,(curGp||0)+gpRegen*rh);
+    const futureBp=needsBp?Math.max(0,(curBp||0)+bpRegen*rh):Infinity;
+    const lapsBy=(gp,bp)=>Math.max(0,Math.floor(Math.min(gp/lapGp,needsBp?bp/lapBp:Infinity)));
+    const naturalLaps=lapsBy(futureGp,futureBp);
+    const halfLaps=lapsBy(futureGp+50,futureBp);
+    const fullLaps=lapsBy(futureGp+100,futureBp);
+    const naturalPoints=pLast+naturalLaps*lapPt;
+    const halfPoints=pLast+halfLaps*lapPt;
+    const fullPoints=pLast+fullLaps*lapPt;
+    sim={futureGp,futureBp,naturalLaps,halfLaps,fullLaps,naturalPoints,halfPoints,fullPoints};
+    const pe=progressPerPointEstimate(b);
+    if(pe&&prog!=null){
+      const predict=v=>Math.max(prog,Math.floor(prog+Math.max(0,v-pLast)*pe.rate));
+      sim.progressRate=pe.rate;
+      sim.naturalProgress=predict(naturalPoints);
+      sim.halfProgress=predict(halfPoints);
+      sim.fullProgress=predict(fullPoints);
+    }
   }
   let note="バモは温存し、自然回復と報酬回収を優先します。";
   if(better&&rank!=null){
     note+=` 次のランキング報酬帯は${fmt(better.minRank)}〜${fmt(better.maxRank)}位（あと約${fmt(Math.max(0,rank-better.maxRank))}順位改善）。`;
     if(rh!=null&&rh>24) note+=" まだ終盤ではないため、順位維持目的の薬投入は急がない判定です。";
+  }
+  let simHtml="";
+  if(sim){
+    const natReach=cumulativeReachAt(e,sim.naturalPoints), fullReach=cumulativeReachAt(e,sim.fullPoints);
+    const extraHalf=rewardsBetween(e,sim.naturalPoints,sim.halfPoints), extraFull=rewardsBetween(e,sim.naturalPoints,sim.fullPoints);
+    const line=r=>r?`${fmt(r.points)}：${esc(r.label)}`:"該当なし";
+    const extraText=xs=>xs.length?xs.slice(0,3).map(r=>`${fmt(r.points)} ${esc(r.label)}`).join(" / ")+(xs.length>3?` ほか${xs.length-3}件`:""):"追加報酬なし";
+    let progHtml="";
+    if(sim.naturalProgress!=null){
+      const n=milestoneReachAt(e,sim.naturalProgress), f=milestoneReachAt(e,sim.fullProgress);
+      progHtml=`<div class="sim-progress"><b>${esc(e.progressLabel||"固有メーター")}予測（実績比）</b><br>自然回復：約${fmt(sim.naturalProgress)}${n.top?` → ${fmt(n.top.value)} ${esc(n.top.label)}`:""}<br>GP薬フル1本：約${fmt(sim.fullProgress)}${f.top?` → ${fmt(f.top.value)} ${esc(f.top.label)}`:""}</div>`;
+    }else if(e.progressLabel){
+      progHtml=`<div class="note" style="margin-top:8px">${esc(e.progressLabel)}の予測は、<b>ptと${esc(e.progressLabel)}を2回以上セットで記録</b>すると実績比から表示します。</div>`;
+    }
+    simHtml=`<div class="sim-box">
+      <div class="sim-title">自然回復・薬1本シミュレーション</div>
+      <div class="sim-grid">
+        <div class="sim-col"><div class="k">薬0本</div><div class="big">${fmt(sim.naturalPoints)} pt</div><div class="sub">${fmt(sim.naturalLaps)}周 / 到達 ${line(natReach.top)}</div></div>
+        <div class="sim-col"><div class="k">GPハーフ1本</div><div class="big">${fmt(sim.halfPoints)} pt</div><div class="sub">${fmt(sim.halfLaps)}周 / ${extraText(extraHalf)}</div></div>
+        <div class="sim-col"><div class="k">GPフル1本</div><div class="big">${fmt(sim.fullPoints)} pt</div><div class="sub">${fmt(sim.fullLaps)}周 / ${extraText(extraFull)}</div></div>
+      </div>
+      <div class="sim-judge">${extraFull.length?`GP薬フル1本で自然回復のみより <b>${extraFull.length}件</b> 多く累計報酬に届く見込み。最上位は <b>${line(fullReach.top)}</b>。`:`現時点ではGP薬フル1本を追加しても、累計報酬の到達段階は変わらない見込み。`}</div>
+      ${progHtml}
+      <div class="note" style="margin-top:8px">自然回復を溢れさせず使い切る前提の概算です。現在GP/BPを記録していない場合は0として保守的に計算します。</div>
+    </div>`;
+  }else{
+    const miss=[];
+    if(pLast==null) miss.push("現在pt");
+    if(!lapPt) miss.push("1周pt");
+    if(!lapGp) miss.push("1周GP");
+    if(gpRegen==null) miss.push("GP自然回復/時");
+    if(needsBp&&bpRegen==null) miss.push("BP自然回復/時");
+    simHtml=`<div class="sim-box"><div class="sim-title">自然回復・薬1本シミュレーション</div><div class="note" style="margin-top:0">${miss.length?`あと <b>${miss.map(esc).join("・")}</b> を設定すると計算できます。`:"計算条件が不足しています。"}</div><button class="small-link" onclick="openLapModal()">周回コスト・自然回復を設定</button></div>`;
   }
   return `<div class="card strategy-card">
     <div class="strategy-head"><h3 style="margin:0">資源回収ナビ</h3><span class="mode">${esc(strategyName(e.strategyMode))}</span></div>
@@ -1026,10 +1121,11 @@ function resourceStrategyHtml(e,b,c){
       <div class="strategy-item"><div class="k">現在の順位報酬帯</div><div class="v">${tier?`${fmt(tier.minRank)}〜${fmt(tier.maxRank)}位`:(rank!=null?`${fmt(rank)}位（未登録）`:"—")}</div></div>
       <div class="strategy-item"><div class="k">次の累計報酬</div><div class="v">${nextCum?`${fmt(nextCum.points)} / ${esc(nextCum.label)}`:"登録なし・完走"}</div></div>
       <div class="strategy-item"><div class="k">${esc(e.progressLabel||"イベント固有メーター")}</div><div class="v">${prog!=null?fmt(prog):"—"}${nextMil?` → 次 ${fmt(nextMil.value)}`:""}</div></div>
-      ${natural?`<div class="strategy-item"><div class="k">自然回復だけの概算</div><div class="v">${fmt(natural.points)} pt</div></div>`:""}
       ${better?`<div class="strategy-item"><div class="k">次の上位報酬帯</div><div class="v">${fmt(better.minRank)}〜${fmt(better.maxRank)}位</div></div>`:""}
+      ${sim?`<div class="strategy-item"><div class="k">自然回復だけの概算</div><div class="v">${fmt(sim.naturalPoints)} pt</div></div>`:""}
     </div>
-    <div class="strategy-note">${note}${nextMil?` 次の固有報酬は <b>${fmt(nextMil.value)}：${esc(nextMil.label)}</b>。`:""}${natural&&nextCum?` 自然回復概算で次の累計報酬${natural.points>=nextCum.points?"まで届く見込みです。":"には届かない見込みです。"} `:""}</div>
+    <div class="strategy-note">${note}${nextMil?` 次の固有報酬は <b>${fmt(nextMil.value)}：${esc(nextMil.label)}</b>。`:""}${sim&&nextCum?` 自然回復概算で次の累計報酬${sim.naturalPoints>=nextCum.points?"まで届く見込みです。":"には届かない見込みです。"} `:""}</div>
+    ${simHtml}
   </div>`;
 }
 
@@ -3332,6 +3428,8 @@ function openRecordModal(recId){
   $("r-mypt-label").textContent = `自分の${e.pointName||"ポイント"}`;
   $("r-mypt").value = r&&r.myPoints!=null ? r.myPoints : "";
   $("r-myrank").value = r&&r.myRank!=null ? r.myRank : "";
+  $("r-currentgp").value = r&&r.currentGp!=null ? r.currentGp : "";
+  $("r-currentbp").value = r&&r.currentBp!=null ? r.currentBp : "";
   const hasSpecial=!!e.progressLabel;
   $("r-special-wrap").classList.toggle("hidden",!hasSpecial);
   $("r-special-label").textContent=e.progressLabel||"イベント固有メーター";
@@ -3353,7 +3451,7 @@ function openRecordModal(recId){
     }
     return null;
   };
-  [["r-gpheal","gpHeal"],["r-gphealhalf","gpHealHalf"],["r-bpheal","bpHeal"],["r-bphealmini","bpHealMini"],["r-vamo","vamo"]].forEach(([id,k])=>{
+  [["r-currentgp","currentGp"],["r-currentbp","currentBp"],["r-gpheal","gpHeal"],["r-gphealhalf","gpHealHalf"],["r-bpheal","bpHeal"],["r-bphealmini","bpHealMini"],["r-vamo","vamo"]].forEach(([id,k])=>{
     const v = prevOf(k);
     $(id).placeholder = v!=null ? `前回 ${fmt(v)}` : "";
   });
@@ -3382,7 +3480,7 @@ function openRecordModal(recId){
   $("r-borders").innerHTML = others.map(biHtml).join("");
   const othersHasVal = !!(r && r.borders && others.some(rk=>r.borders[rk]!=null && r.borders[rk]!==""));
   setFold("r-borders-fold","r-borders-toggle", othersHasVal, `他の順位のボーダーも記録（${others.length}件）`);
-  const resHasVal = !!(r && (["gpHeal","gpHealHalf","bpHeal","bpHealMini","vamo"].some(k=>numOrNull(r[k])!=null) || (r.tokko!=null && r.tokko!=="")));
+  const resHasVal = !!(r && (["currentGp","currentBp","gpHeal","gpHealHalf","bpHeal","bpHealMini","vamo"].some(k=>numOrNull(r[k])!=null) || (r.tokko!=null && r.tokko!=="")));
   setFold("r-res-fold","r-res-toggle", resHasVal, "資源も記録（回復薬・バモ・特効）");
   /* デイリー型は枠入力に切替 */
   const isDaily = b.kind==="daily";
@@ -3492,6 +3590,7 @@ function saveRecord(){
     myRank: slotData ? slotData[0].rank : numOrNull($("r-myrank").value),
     progressValue: e.progressLabel ? numOrNull($("r-special").value) : null,
     borders,
+    currentGp:numOrNull($("r-currentgp").value), currentBp:numOrNull($("r-currentbp").value),
     vamo:numOrNull($("r-vamo").value),
     gpHeal:numOrNull($("r-gpheal").value), gpHealHalf:numOrNull($("r-gphealhalf").value),
     bpHeal:numOrNull($("r-bpheal").value), bpHealMini:numOrNull($("r-bphealmini").value),
