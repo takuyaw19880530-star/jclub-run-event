@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261016.3";
+window.__BUILD__ = "20261017.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -420,6 +420,16 @@ canvas{display:block;width:100%;touch-action:manipulation}
 .sim-col .big{font-family:var(--mono);font-size:15px;font-weight:800;color:var(--text);word-break:break-word}
 .sim-col .sub{font-size:10.5px;line-height:1.55;color:var(--sub);margin-top:5px;word-break:break-word}
 .sim-judge,.sim-progress{font-size:11.5px;line-height:1.7;color:var(--sub);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.target-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.target-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 11px}
+.target-card.good{border-color:color-mix(in srgb,var(--safe) 60%,var(--line));box-shadow:inset 3px 0 0 var(--safe)}
+.target-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.target-pt{font-family:var(--mono);font-size:13px;font-weight:800;color:var(--text)}
+.target-label{font-size:11.5px;color:var(--sub);line-height:1.5;margin-top:3px}
+.target-badge{flex:0 0 auto;font-size:9.5px;font-weight:800;border-radius:99px;padding:4px 7px;background:var(--panel2);color:var(--sub);border:1px solid var(--line)}
+.target-badge.good{background:color-mix(in srgb,var(--safe) 16%,transparent);color:var(--safe);border-color:color-mix(in srgb,var(--safe) 35%,var(--line))}
+.target-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:10.5px;line-height:1.5;color:var(--faint)}
+.target-meta b{color:var(--text);font-family:var(--mono)}
 @media(max-width:430px){.sim-grid{grid-template-columns:1fr}.sim-col{display:grid;grid-template-columns:86px 92px 1fr;gap:8px;align-items:start}.sim-col .k,.sim-col .big,.sim-col .sub{margin:0}}
 .rw-tools{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 12px}
 .rw-tools button{font-size:11px;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--sub)}
@@ -1031,6 +1041,37 @@ function rewardsBetween(e, fromPoints, toPoints){
   if(a==null||z==null||z<=a) return [];
   return [...(e.rewards||[])].filter(r=>r.points>a&&r.points<=z).sort((x,y)=>x.points-y.points);
 }
+function gpRewardValue(label){
+  const s=String(label||"").replace(/\s/g,"");
+  let gp=0;
+  for(const m of s.matchAll(/GP回復薬ハーフ[×xX](\d+)/g)) gp+=50*Number(m[1]||0);
+  for(const m of s.matchAll(/GP回復薬(?!ハーフ)[×xX](\d+)/g)) gp+=100*Number(m[1]||0);
+  return gp;
+}
+function gpMedicinePlan(gpNeed){
+  const need=Math.max(0,Number(gpNeed)||0);
+  const units=Math.ceil(need/50);
+  const gp=units*50;
+  const full=Math.floor(units/2), half=units%2;
+  const parts=[];
+  if(full) parts.push(`フル${full}本`);
+  if(half) parts.push(`ハーフ${half}本`);
+  return {need,gp,full,half,label:parts.length?parts.join("＋"):"薬なし"};
+}
+function rewardTargetPlans(e,prediction,eff){
+  const p=numOrNull(prediction);
+  if(p==null||!(eff>0)) return [];
+  return [...(e.rewards||[])].sort((a,b)=>a.points-b.points).filter(r=>r.points>p).map(r=>{
+    const gap=Math.max(0,r.points-p), gpNeed=gap/eff, plan=gpMedicinePlan(gpNeed);
+    const rewardGp=gpRewardValue(r.label), netGp=rewardGp?rewardGp-plan.gp:null;
+    let badge="複数本必要";
+    if(netGp!=null&&netGp>0) badge="薬収支プラス";
+    else if(plan.gp<=50) badge="ハーフ1本圏内";
+    else if(plan.gp<=100) badge="フル1本圏内";
+    else if(plan.gp<=200) badge="少量で到達";
+    return {reward:r,gap,gpNeed,plan,rewardGp,netGp,badge};
+  });
+}
 function progressPerPointEstimate(b){
   const a=sortedRecords(b).filter(r=>numOrNull(r.myPoints)!=null&&numOrNull(r.progressValue)!=null);
   if(a.length<2) return null;
@@ -1111,35 +1152,56 @@ function resourceStrategyHtml(e,b,c){
   }
   let simHtml="";
   if(learn.ok){
-    const realReach=cumulativeReachAt(e,learn.realistic), fullReach=cumulativeReachAt(e,learn.full);
-    const extraHalf=rewardsBetween(e,learn.realistic,learn.half), extraFull=rewardsBetween(e,learn.realistic,learn.full);
+    const realReach=cumulativeReachAt(e,learn.realistic);
     const line=r=>r?`${fmt(r.points)}：${esc(r.label)}`:"該当なし";
-    const extraText=xs=>xs.length?xs.slice(0,3).map(r=>`${fmt(r.points)} ${esc(r.label)}`).join(" / ")+(xs.length>3?` ほか${xs.length-3}件`:""):"追加報酬なし";
+    const plans=rewardTargetPlans(e,learn.realistic,learn.eff);
+    const nearPlans=plans.slice(0,4);
+    const positive=plans.find(x=>x.netGp!=null&&x.netGp>0&&x.plan.gp<=500)||null;
     let progHtml="";
     const pe=progressPerPointEstimate(b);
     if(pe&&prog!=null){
-      const predict=v=>Math.max(prog,Math.floor(prog+Math.max(0,v-pLast)*pe.rate));
-      const rp=predict(learn.realistic), fp=predict(learn.full);
-      const nr=milestoneReachAt(e,rp), fr=milestoneReachAt(e,fp);
-      progHtml=`<div class="sim-progress"><b>${esc(e.progressLabel||"固有メーター")}予測（実績比）</b><br>現実予測：約${fmt(rp)}${nr.top?` → ${fmt(nr.top.value)} ${esc(nr.top.label)}`:""}<br>GP薬フル1本：約${fmt(fp)}${fr.top?` → ${fmt(fr.top.value)} ${esc(fr.top.label)}`:""}</div>`;
+      const mileVals=(e.milestoneRewards||[]).map(x=>numOrNull(x.value)).filter(v=>v!=null);
+      const mileCap=mileVals.length?Math.max(...mileVals):null;
+      const predict=v=>{
+        let out=Math.max(prog,Math.floor(prog+Math.max(0,v-pLast)*pe.rate));
+        if(mileCap!=null) out=Math.min(mileCap,out);
+        return out;
+      };
+      const rp=predict(learn.realistic), tp=predict(learn.theoretical);
+      const nr=milestoneReachAt(e,rp), tr=milestoneReachAt(e,tp);
+      progHtml=`<div class="sim-progress"><b>${esc(e.progressLabel||"固有メーター")}予測（実績比）</b><br>現実予測：約${fmt(rp)}${nr.top?` → ${fmt(nr.top.value)} ${esc(nr.top.label)}`:""}<br>使い切り上限：約${fmt(tp)}${tr.top?` → ${fmt(tr.top.value)} ${esc(tr.top.label)}`:""}</div>`;
     }else if(e.progressLabel){
       progHtml=`<div class="note" style="margin-top:8px">${esc(e.progressLabel)}の予測は、<b>ptと${esc(e.progressLabel)}を2回以上セットで記録</b>すると表示します。</div>`;
+    }
+    const targetHtml=nearPlans.length?`<div class="target-list">${nearPlans.map((x,i)=>{
+      const good=x.netGp!=null&&x.netGp>0;
+      const netTxt=x.netGp!=null?`<span>薬収支 <b style="color:${x.netGp>0?'var(--safe)':x.netGp<0?'var(--warn)':'var(--text)'}">${x.netGp>0?'+':''}${fmt(x.netGp)} GP</b></span>`:"";
+      return `<div class="target-card ${good?'good':''}">
+        <div class="target-head"><div><div class="target-pt">${fmt(x.reward.points)} pt</div><div class="target-label">${esc(x.reward.label)}</div></div><span class="target-badge ${good?'good':''}">${esc(x.badge)}</span></div>
+        <div class="target-meta"><span>あと <b>${fmt(Math.ceil(x.gap))} pt</b></span><span>必要追加GP 約<b>${fmt(Math.ceil(x.gpNeed))}</b></span><span>最小目安 <b>${esc(x.plan.label)}</b></span>${netTxt}</div>
+      </div>`;
+    }).join("")}</div>`:`<div class="note" style="margin-top:8px">現実予測より先の累計報酬はありません。</div>`;
+    let judge="";
+    if(positive){
+      judge=`現時点の実測効率では、<b>${fmt(positive.reward.points)}：${esc(positive.reward.label)}</b> が資源面の狙い目。現実予測から約 <b>${fmt(Math.ceil(positive.gpNeed))}GP</b> 不足し、最小目安は <b>${esc(positive.plan.label)}</b>。報酬のGP換算は <b>${fmt(positive.rewardGp)}GP</b> なので、概算薬収支は <b style="color:var(--safe)">+${fmt(positive.netGp)}GP</b>。`;
+    }else if(nearPlans.length){
+      judge=`現時点では、近い累計報酬に<b>薬収支がプラスになるラインはありません</b>。自然回復を優先し、終盤に距離が縮まってから再判定するのが安全です。`;
+    }else{
+      judge=`現実予測で累計報酬は完走見込みです。薬投入はランキングなど別目的がある場合だけ再判定します。`;
     }
     simHtml=`<div class="sim-box">
       <div class="sim-title">実績学習による自然回復予測</div>
       <div class="sim-grid">
         <div class="sim-col"><div class="k">控えめ</div><div class="big">${fmt(learn.conservative)} pt</div><div class="sub">実績の低めのGP消化率を採用</div></div>
-        <div class="sim-col"><div class="k">現実予測</div><div class="big">${fmt(learn.realistic)} pt</div><div class="sub">到達 ${line(realReach.top)}</div></div>
+        <div class="sim-col"><div class="k">現実予測</div><div class="big">${fmt(learn.realistic)} pt</div><div class="sub">薬0本で到達 ${line(realReach.top)}</div></div>
         <div class="sim-col"><div class="k">使い切り上限</div><div class="big">${fmt(learn.theoretical)} pt</div><div class="sub">自然回復GPを溢れなく消化</div></div>
       </div>
       <div class="sim-progress"><b>学習状況</b><br>実測 ${learn.samples.length}区間 ／ 中央効率 ${fmt(Math.round(learn.eff))} pt/GP ／ GP消化率 約${fmt1(learn.useRatio*100)}%${learn.confirmed?` ／ 薬残数で未使用確認 ${learn.confirmed}区間`:""}</div>
-      <div class="sim-grid" style="margin-top:10px">
-        <div class="sim-col"><div class="k">GPハーフ1本</div><div class="big">${fmt(learn.half)} pt</div><div class="sub">${extraText(extraHalf)}</div></div>
-        <div class="sim-col"><div class="k">GPフル1本</div><div class="big">${fmt(learn.full)} pt</div><div class="sub">${extraText(extraFull)}</div></div>
-      </div>
-      <div class="sim-judge">${extraFull.length?`GP薬フル1本で現実予測より <b>${extraFull.length}件</b> 多く累計報酬に届く見込み。最上位は <b>${line(fullReach.top)}</b>。`:`現時点ではGP薬フル1本を足しても、累計報酬の到達段階は変わらない見込み。`}</div>
+      <div class="sim-progress"><b>報酬ライン判断</b><br>薬の本数から考えるのではなく、<b>現実予測から次の報酬まで何GP足りないか</b>で判断します。</div>
+      ${targetHtml}
+      <div class="sim-judge">${judge}</div>
       ${progHtml}
-      <div class="note" style="margin-top:8px">固定の「1周pt」ではなく、<b>実際のpt増加・現在GP・経過時間</b>からpt/GPを学習します。カプセル・抽選・イベント固有ボーナスも結果のptに含まれるため、イベントを問わず実態に近づきます。GPが長時間満タンだった区間は効率を控えめに見積もる方向に働きます。</div>
+      <div class="note" style="margin-top:8px">固定の「1周pt」ではなく、<b>実際のpt増加・現在GP・経過時間</b>からpt/GPを学習します。薬収支はGP回復薬・GP回復薬ハーフが報酬に含まれる場合だけ自動換算します。ガチャ券などの価値は一律換算せず、必要GPだけを表示します。</div>
     </div>`;
   }else{
     simHtml=`<div class="sim-box"><div class="sim-title">実績学習による自然回復予測</div><div class="note" style="margin-top:0">${esc(learn.reason)}<br><b>クイック記録で「現在GP」も一緒に入れる</b>と、固定1周ptに頼らず自動学習します。</div></div>`;
