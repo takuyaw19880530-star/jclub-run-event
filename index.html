@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261017.2";
+window.__BUILD__ = "20261017.3";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -211,6 +211,25 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .v2hero .gapnum.g9{font-size:clamp(26px,8.6vw,38px)}
 .v2hero .gapnum.g11{font-size:clamp(22px,7.2vw,32px)}
 .v2hero .gapcap{font-size:12px;color:var(--sub);margin-top:8px}
+
+/* ===== 状況タブ：現在地と予測を分離 ===== */
+.rank-now{background:var(--panel);border:var(--card-bw) solid var(--line);border-radius:var(--radius-card);padding:16px;box-shadow:var(--card-shadow);margin-bottom:12px}
+.rank-now .top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.rank-now .title{font-size:15px;font-weight:800}
+.rank-now .clock{font-size:12px;color:var(--sub);white-space:nowrap}
+.rank-now .clock b{color:var(--text);font-family:var(--mono)}
+.rank-now .msg{font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:13px}
+.rank-now .gap{font-family:var(--mono);font-size:clamp(25px,8vw,36px);font-weight:800;letter-spacing:-.03em;line-height:1.05;margin-bottom:5px}
+.rank-now .gap.ahead{color:var(--safe)}
+.rank-now .gap.behind{color:var(--warn)}
+.rank-now .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rank-now .box{background:var(--panel2);border-radius:12px;padding:12px}
+.rank-now .box .k{font-size:11px;color:var(--sub);margin-bottom:5px}
+.rank-now .box .v{font-family:var(--mono);font-size:18px;font-weight:750}
+.rank-now .box .s{font-size:11px;color:var(--faint);margin-top:3px}
+.rank-now .rankline{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);font-size:12px;color:var(--sub);line-height:1.6}
+.strategy-stock{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.strategy-stock span{font-size:11px;color:var(--sub);background:var(--panel2);border-radius:99px;padding:6px 10px}
 
 .trk{position:relative;height:104px;margin:16px -3px 0;touch-action:none}
 .trk .rail{position:absolute;left:12px;right:12px;top:48px;height:10px;border-radius:99px;background:var(--rail)}
@@ -1219,6 +1238,7 @@ function resourceStrategyHtml(e,b,c){
       <div class="strategy-item"><div class="k">${esc(e.progressLabel||"固有メーター")}</div><div class="v">${prog!=null?fmt(prog):"—"}${nextMil?` → ${fmt(nextMil.value)}`:""}</div></div>
     </div>
     <div class="strategy-action"><b>${esc(action)}</b></div>
+    <div class="strategy-stock"><span>GP薬 ${fmt(latestHealAmount(b,"gp"))} GP分</span><span>BP薬 ${fmt(latestHealAmount(b,"bp"))} BP分</span></div>
     <div class="strategy-rank">${esc(rankText)}</div>
     ${simHtml}
   </div>`;
@@ -2218,6 +2238,31 @@ function v2HeroHtml(e, b, c){
     </div>
   </div>`;
 }
+function currentPositionHtml(e,b,c){
+  if(!e||!b) return "";
+  const recs=sortedRecords(b), last=recs.length?recs[recs.length-1]:null;
+  const rank=last?numOrNull(last.myRank):null;
+  const tier=rankRewardTier(e,rank);
+  const bdLabel=c.goalMode?"目標":`${fmt(c.tRank)}位ボーダー`;
+  if(c.myLast==null || c.bdLast==null){
+    return `<div class="rank-now"><div class="top"><div class="title">ランキング現在地</div><div class="clock">残り <b>${remainText(e).replace(/^残り\s*/,"")}</b></div></div><div class="msg">自分のptと${bdLabel}を記録すると、現在の差を表示します。終了時予測とは分けて表示します。</div></div>`;
+  }
+  const diff=c.myLast-c.bdLast;
+  const ahead=diff>=0;
+  const headline=ahead?`現在の${bdLabel}より ${fmt(Math.abs(diff))}pt 上`:`現在の${bdLabel}まであと ${fmt(Math.abs(diff))}pt`;
+  const rankline=rank!=null?`現在 ${fmt(rank)}位${tier?`・報酬帯 ${fmt(tier.minRank)}〜${fmt(tier.maxRank)}位`:""}`:"順位は未記録";
+  return `<div class="rank-now">
+    <div class="top"><div class="title">ランキング現在地</div><div class="clock">残り <b>${remainText(e).replace(/^残り\s*/,"")}</b></div></div>
+    <div class="gap ${ahead?"ahead":"behind"}">${ahead?"+":"−"}${fmt(Math.abs(diff))} pt</div>
+    <div class="msg">${esc(headline)}。ここでは<b>今の差だけ</b>を表示し、終了時の安全ラインとは混ぜません。</div>
+    <div class="pair">
+      <div class="box"><div class="k">自分</div><div class="v">${fmt(c.myLast)}</div><div class="s">${c.mySpd!=null?`直近 ${fmt(c.mySpd)}/h`:esc(e.pointName||"Pt")}</div></div>
+      <div class="box"><div class="k">現在の${bdLabel}</div><div class="v">${fmt(c.bdLast)}</div><div class="s">${c.bdSpd!=null?`直近 ${fmt(c.bdSpd)}/h`:esc(e.pointName||"Pt")}</div></div>
+    </div>
+    <div class="rankline">${esc(rankline)}。最終的に届くかは下の「終了時予測」で別に判断します。</div>
+  </div>`;
+}
+
 function bindTrack(){
   const trk = $("trk"); if(!trk) return;
   const marks = [...trk.querySelectorAll(".mk")];
@@ -2255,8 +2300,21 @@ function renderDash(){
   const diff = (c.myLast!=null && c.bdLast!=null) ? c.myLast-c.bdLast : null;
   const boardNote = e.boards.length>1 ? `「${esc(b.name)}」ボード` : "";
 
-  let html = v2HeroHtml(e, b, c);
-  html += resourceStrategyHtml(e,b,c);
+  const strategy=e.strategyMode||"rank";
+  let html = "";
+  if(strategy==="resource"){
+    /* 資源回収は「今どうするか」を主役にし、ランキングの大きな警告カードは出さない */
+    html += resourceStrategyHtml(e,b,c);
+    if(e.tokko || e.memo){
+      html += `<details class="sim-detail" style="margin-bottom:12px"><summary>イベントメモを見る</summary><div class="inside">${e.tokko?`特効：${esc(e.tokko)}<br>`:""}${e.memo?esc(e.memo).replace(/\n/g,"<br>"):""}</div></details>`;
+    }
+    html += `<button class="btn ghost" onclick="openRecordModal()">くわしく記録（資源・メモ・他の順位）</button>`;
+    $("tab-dash").innerHTML = html;
+    return;
+  }
+  /* ランキング狙い / バランスでは、現在差と終了時予測を別カードにする */
+  html += currentPositionHtml(e,b,c);
+  if(strategy==="balanced") html += resourceStrategyHtml(e,b,c);
 
   /* --- 周回コスト前計算 --- */
   const lap = b.lap||{}, gset = db.settings||{};
