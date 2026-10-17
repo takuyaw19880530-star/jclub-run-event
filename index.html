@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261017.3";
+window.__BUILD__ = "20261017.4";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -277,27 +277,19 @@ header .h-act{font-size:13px;color:var(--border-c);font-weight:600;padding:6px 2
 .spdrow .val{font-family:var(--mono);font-size:12px;font-weight:700;width:66px;text-align:right;
   flex:0 0 auto;font-variant-numeric:tabular-nums}
 
-/* ---------- v2 ホーム ---------- */
+/* ---------- ホーム：イベント選択に徹する ---------- */
 .livecard{display:block;width:100%;text-align:left;position:relative;overflow:hidden;
-  background:linear-gradient(180deg,var(--panel2),var(--panel));
-  border:var(--card-bw) solid var(--line);box-shadow:var(--card-shadow);
-  border-radius:var(--radius-card);padding:16px 16px 15px;margin-bottom:12px}
-.livecard .top{display:flex;align-items:center;gap:9px;margin-bottom:11px}
-.livecard .top .dot{width:8px;height:8px;border-radius:50%;background:var(--acc)}
-.livecard .top .st{font-size:13px;font-weight:700;color:var(--acc)}
-.livecard .top .rest{margin-left:auto;font-size:11px;color:var(--sub)}
-.livecard .nm{font-size:15px;font-weight:700;line-height:1.35;margin-bottom:12px}
-.livecard .figs{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
-.livecard .figs .g{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;
-  letter-spacing:-.03em;color:var(--acc);line-height:1}
-.livecard .figs .g.s7{font-size:30px} .livecard .figs .g.s9{font-size:25px} .livecard .figs .g.s11{font-size:21px}
-.livecard .figs .gk{font-size:10px;color:var(--faint);margin-top:5px}
-.livecard .figs .need{text-align:right;font-size:11px;color:var(--sub)}
-.livecard .figs .need b{display:block;font-family:var(--mono);font-size:16px;color:var(--text);font-weight:700}
-.livecard .bar{margin-top:13px;height:6px;border-radius:99px;background:var(--rail);overflow:hidden;position:relative}
-.livecard .bar i{position:absolute;top:0;bottom:0;border-radius:99px;background:var(--acc);opacity:.75}
-.livecard .bar .sf{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--gold);opacity:.85}
-.livecard .warnrec{margin-top:11px;font-size:11px;color:var(--warn)}
+  background:var(--panel);border:var(--card-bw) solid var(--line);box-shadow:var(--card-shadow);
+  border-radius:var(--radius-card);padding:14px 16px;margin-bottom:10px}
+.livecard:active{background:var(--panel2)}
+.livecard .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.livecard .mode{font-size:11px;font-weight:750;color:var(--border-c);padding:3px 8px;border-radius:99px;
+  background:color-mix(in srgb,var(--border-c) 12%,transparent)}
+.livecard .rest{margin-left:auto;font-size:11px;color:var(--sub)}
+.livecard .nm{font-size:15px;font-weight:750;line-height:1.35;margin-bottom:8px}
+.livecard .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
+.livecard .meta b{color:var(--text);font-family:var(--mono);font-weight:700}
+.livecard .warnrec{margin-top:8px;font-size:11px;color:var(--warn)}
 .donerow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
   padding:12px 14px;border-bottom:1px solid var(--line)}
 .donerow .nm{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub)}
@@ -1699,37 +1691,24 @@ function renderHome(){
   const done = evs.filter(e=>e.status==="done");
   let out = guide;
 
-  /* 開催中は大きなカードで、いま危ないかどうかが一目で分かるように */
+  /* ホームはイベント選択・履歴だけ。判断はイベント詳細の「状況」に集約する */
   out += live.map(e=>{
-    const b0 = e.boards[0]; const c = calc(e, b0);
-    const acc = ACC_VAR[c.status];
-    const diff = (c.myLast!=null && c.bdLast!=null) ? c.myLast-c.bdLast : null;
+    const b0 = e.boards[0];
+    const recs = b0 ? sortedRecords(b0) : [];
+    const last = recs.length ? recs[recs.length-1] : null;
+    const rank = last ? numOrNull(last.myRank) : null;
+    const pts = last ? numOrNull(last.myPoints) : null;
+    const tier = rankRewardTier(e,rank);
     const allTs = e.boards.flatMap(bd=>(bd.records||[]).map(r=>r.ts));
     const sinceH = allTs.length ? hoursBetween(Math.max(...allTs), Date.now()) : null;
     const overdue = e.status==="active" && sinceH!=null && sinceH > recommendIntervalH(remainHours(e), b0);
-    const cap = (c.mySpd!=null && c.rh!=null) ? Math.max(1, c.mySpd*c.rh) : null;
-    const showBar = c.bdLast!=null && c.myLast!=null && c.safety!=null && cap!=null;
-    const mx = showBar ? trackPos(c, c.myLast, cap) : null;
-    const gsz = (()=>{const n=diff==null?0:Math.abs(Math.round(diff)).toLocaleString("ja-JP").length;
-      return n>=12?"s11":n>=10?"s9":"s7";})();
-    return `<button class="livecard" style="--acc:${acc}" onclick="showEvent('${e.id}')">
-      <div class="top"><span class="dot"></span>
-        <span class="st">${c.status==="none"?STATUS_LABEL[e.status]:STATUS_TEXT[c.status]}</span>
-        <span class="rest">${remainText(e)}</span></div>
+    const primary = rank!=null ? `現在 <b>${fmt(rank)}位</b>` : (pts!=null ? `現在 <b>${fmt(pts)} ${esc(e.pointName||"pt")}</b>` : "記録なし");
+    const band = tier ? `報酬帯 ${fmt(tier.minRank)}〜${fmt(tier.maxRank)}位` : "";
+    return `<button class="livecard" onclick="showEvent('${e.id}')">
+      <div class="top"><span class="mode">${esc(strategyName(e.strategyMode||"rank"))}</span><span class="rest">${remainText(e)}</span></div>
       <div class="nm">${esc(e.name||"（無題）")}</div>
-      <div class="figs">
-        <div>
-          <div class="g ${gsz}">${diff==null?"—":(diff>=0?"+":"−")+fmt(Math.abs(diff))}</div>
-          <div class="gk">${c.goalMode?"目標との差":`${c.tRank??"—"}位ボーダーとの差`}</div>
-        </div>
-        ${c.need!=null&&c.need>0?`<div class="need">あと<b>${fmt(c.need)}</b>${esc(e.pointName||"pt")}</div>`:""}
-      </div>
-      ${showBar?`<div class="bar">
-        <i style="left:${Math.min(TRK_BD,mx)}%;width:${Math.abs(mx-TRK_BD)}%"></i>
-        <span class="sf" style="left:${TRK_SF}%"></span>
-        <span class="sf" style="left:${TRK_BD}%;background:var(--border-c)"></span>
-      </div>`:""}
-      ${overdue?`<div class="warnrec">最後の記録から ${hoursToText(sinceH)} 経過しています</div>`:""}
+      <div class="meta"><span>${primary}</span>${band?`<span>・ ${esc(band)}</span>`:""}</div>
+      ${overdue?`<div class="warnrec">最後の記録から ${hoursToText(sinceH)} 経過</div>`:""}
     </button>`;
   }).join("");
 
@@ -1779,6 +1758,9 @@ function showHome(){
 function showEvent(id){
   state.evId=id;
   const e=ev(); if(!e) return;
+  db.settings = db.settings || {};
+  db.settings.lastOpenedEventId = id;
+  saveDB();
   state.boardId = e.boards[0].id;
   state.tab="dash"; state.chartSel=null;
   $("view-home").classList.add("hidden");
@@ -2263,6 +2245,27 @@ function currentPositionHtml(e,b,c){
   </div>`;
 }
 
+function compactResourceRankHtml(e,b,c){
+  if(!e||!b) return "";
+  const recs=sortedRecords(b), last=recs.length?recs[recs.length-1]:null;
+  const rank=last?numOrNull(last.myRank):null;
+  const tier=rankRewardTier(e,rank), better=nextBetterRankTier(e,rank);
+  const bdLabel=c&&c.tRank!=null?`${fmt(c.tRank)}位ボーダー`:"目標ボーダー";
+  const diff=(c&&c.myLast!=null&&c.bdLast!=null)?c.myLast-c.bdLast:null;
+  const gapText=diff==null?"ボーダー未記録":(diff>=0?`${bdLabel}より ${fmt(diff)}pt 上`:`${bdLabel}まであと ${fmt(Math.abs(diff))}pt`);
+  const rankText=rank!=null?`${fmt(rank)}位`:"順位未記録";
+  const tierText=tier?`${fmt(tier.minRank)}〜${fmt(tier.maxRank)}位帯`:"報酬帯未判定";
+  const nextText=better&&rank!=null?`次は ${fmt(better.minRank)}〜${fmt(better.maxRank)}位帯`:"";
+  return `<div class="rank-now compact">
+    <div class="top"><div class="title">ランキング（参考）</div><div class="clock">${esc(rankText)}</div></div>
+    <div class="pair">
+      <div class="box"><div class="k">現在の報酬帯</div><div class="v" style="font-size:15px">${esc(tierText)}</div></div>
+      <div class="box"><div class="k">現在ボーダーとの差</div><div class="v" style="font-size:15px">${esc(gapText)}</div></div>
+    </div>
+    <div class="rankline">${nextText?esc(nextText)+"。":""} 資源回収モードでは順位を追う判断は終盤に行います。</div>
+  </div>`;
+}
+
 function bindTrack(){
   const trk = $("trk"); if(!trk) return;
   const marks = [...trk.querySelectorAll(".mk")];
@@ -2305,6 +2308,7 @@ function renderDash(){
   if(strategy==="resource"){
     /* 資源回収は「今どうするか」を主役にし、ランキングの大きな警告カードは出さない */
     html += resourceStrategyHtml(e,b,c);
+    html += compactResourceRankHtml(e,b,c);
     if(e.tokko || e.memo){
       html += `<details class="sim-detail" style="margin-bottom:12px"><summary>イベントメモを見る</summary><div class="inside">${e.tokko?`特効：${esc(e.tokko)}<br>`:""}${e.memo?esc(e.memo).replace(/\n/g,"<br>"):""}</div></details>`;
     }
@@ -4010,7 +4014,16 @@ try{
     }
   });
 }catch(err){}
-renderHome();
+/* 開催中は前回見ていたイベントへ直接戻る。ホームはイベント切替・履歴用。 */
+(function startApp(){
+  const st=db.settings||{};
+  let target=st.lastOpenedEventId ? db.events.find(e=>e.id===st.lastOpenedEventId && (e.status==="active"||e.status==="draft")) : null;
+  if(!target){
+    target=[...db.events].filter(e=>e.status==="active"||e.status==="draft").sort((a,b)=>(b.start||0)-(a.start||0))[0]||null;
+  }
+  if(target) showEvent(target.id);
+  else renderHome();
+})();
 </script>
 </body>
 </html>
