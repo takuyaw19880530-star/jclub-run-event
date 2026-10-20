@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261018.0";
+window.__BUILD__ = "20261021.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -400,14 +400,32 @@ canvas{display:block;width:100%;touch-action:manipulation}
 /* ===== 報酬 ===== */
 .rw{display:flex;align-items:center;gap:12px;background:var(--panel);
   border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:8px}
-.rw .chk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);
-  flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:14px;color:transparent}
-.rw.got .chk{background:var(--safe);border-color:var(--safe);color:#0B1220}
-.rw.reach:not(.got) .chk{border-color:var(--gold)}
-.rw .pt{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;font-weight:700;flex:0 0 auto;min-width:86px}
-.rw .lb{font-size:13px;color:var(--sub);flex:1}
-.rw.got .lb{text-decoration:line-through;color:var(--faint)}
-.rw .del{color:var(--faint);font-size:17px;padding:4px 2px 4px 8px}
+.rw.auto{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;padding:12px 12px;align-items:center}
+.rw.auto .rw-info{min-width:0}
+.rw.auto .pt{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;font-weight:800;color:var(--text)}
+.rw.auto .pt small{font-size:10px;margin-left:4px;color:var(--faint);font-weight:500}
+.rw.auto .lb{font-size:12.5px;color:var(--sub);line-height:1.45;margin-top:4px;overflow-wrap:anywhere}
+.rw.auto.earned{background:color-mix(in srgb,var(--safe) 5%,var(--panel));border-color:color-mix(in srgb,var(--safe) 18%,var(--line))}
+.rw.auto.next{border-color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
+.rw.auto .auto-state{font-size:10px;white-space:nowrap;color:var(--faint);font-weight:750}
+.rw.auto.earned .auto-state{color:var(--safe)}
+.rw.auto.next .auto-state{color:var(--gold)}
+.rw.auto .del{color:var(--faint);font-size:15px;padding:4px 2px 4px 5px}
+.reward-hint{font-size:11px;line-height:1.65;color:var(--sub);padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:14px;background:var(--panel)}
+.reward-meta{font-size:11px;color:var(--faint);margin-bottom:10px}
+.reward-subtitle{font-size:11px;font-weight:800;color:var(--sub);margin:14px 0 8px}
+.reward-fold{margin:10px 0 15px;border:1px solid var(--line);border-radius:11px;padding:0 10px;background:var(--panel)}
+.reward-fold summary{cursor:pointer;padding:12px 4px;color:var(--sub);font-size:12px;font-weight:700;list-style:none}
+.reward-fold summary::-webkit-details-marker{display:none}
+.reward-fold summary::before{content:'＋';margin-right:8px;color:var(--border-c)}
+.reward-fold[open] summary::before{content:'−'}
+.reward-fold-body{padding:0 0 3px}
+.reward-fold .rw:last-child{margin-bottom:7px}
+.reward-ranking-current{border:1px solid var(--border-c);border-radius:12px;padding:13px 14px;background:var(--panel);margin-bottom:12px}
+.reward-ranking-current .k{font-size:11px;color:var(--sub);margin-bottom:4px}
+.reward-ranking-current .v{font-size:17px;font-weight:800;color:var(--text)}
+.reward-ranking-current .label{font-size:12px;color:var(--sub);line-height:1.5;margin-top:5px}
+.reward-ranking-current .note{font-size:10.5px;color:var(--faint);margin-top:6px}
 .next-rw{border-left:3px solid var(--gold);padding-left:12px;margin:4px 0 14px;font-size:13px;color:var(--sub);line-height:1.7}
 .next-rw b{font-family:var(--mono);color:var(--gold)}
 .rw-section{margin:16px 0 8px}.rw-section:first-child{margin-top:0}
@@ -1072,11 +1090,12 @@ function nextBetterRankTier(e, rank){
   rank=numOrNull(rank); if(rank==null) return null;
   return [...(e.rankRewards||[])].filter(x=>x.maxRank<rank).sort((a,b)=>b.maxRank-a.maxRank)[0]||null;
 }
+/* 報酬の達成は記録値から自動判定。旧doneはバックアップ互換のため保持するが判定には使用しない。 */
 function nextCumulativeReward(e, points){
-  const p=numOrNull(points); return [...(e.rewards||[])].sort((a,b)=>a.points-b.points).find(r=>!r.done&&(p==null||r.points>p))||null;
+  const p=numOrNull(points); return [...(e.rewards||[])].sort((a,b)=>a.points-b.points).find(r=>p==null||r.points>p)||null;
 }
 function nextMilestoneReward(e, value){
-  const v=numOrNull(value); return [...(e.milestoneRewards||[])].sort((a,b)=>a.value-b.value).find(r=>!r.done&&(v==null||r.value>v))||null;
+  const v=numOrNull(value); return [...(e.milestoneRewards||[])].sort((a,b)=>a.value-b.value).find(r=>v==null||r.value>v)||null;
 }
 function cumulativeReachAt(e, points){
   const p=numOrNull(points), all=[...(e.rewards||[])].sort((a,b)=>a.points-b.points);
@@ -2491,53 +2510,85 @@ function renderRecs(){
   }
 }
 
-/* ---------- 報酬タブ ---------- */
+/* ---------- 報酬タブ：記録値による自動達成判定 ---------- */
+function rewardSnapshot(e){
+  /* 報酬はイベント共通。タブで選択中のボードに引きずられないよう主ボードを参照する。 */
+  const b=(e.boards||[])[0];
+  if(!b) return {points:null,progress:null,rank:null,rankConfirmed:false};
+  const points=latestNonNull(b,"myPoints"), progress=latestProgressValue(b), rank=latestRank(b);
+  const rankRec=sortedRecords(b).slice().reverse().find(r=>numOrNull(r.myRank)!=null);
+  /* ランキング報酬は終了前の途中順位では確定させない。 */
+  const rankConfirmed=!!(e.status==="done"&&rankRec&&e.end&&rankRec.ts>=e.end&&rank!=null);
+  return {points,progress,rank,rankConfirmed};
+}
+function rewardAutoRow(r,kind,current,isNext=false){
+  const milestone=kind==="milestone";
+  const value=milestone?r.value:r.points;
+  const reached=current!=null&&value<=current;
+  const state=reached?"獲得済み":current==null?"記録待ち":isNext?"次の報酬":"未達成";
+  return `<div class="rw auto ${reached?"earned":""} ${isNext&&!reached?"next":""}">
+    <div class="rw-info"><div class="pt">${fmt(value)}<small>${milestone?"": "pt"}</small></div><div class="lb">${esc(r.label)}</div></div>
+    <span class="auto-state">${reached?"✓ ":""}${state}</span>
+    <button class="del" aria-label="${esc(r.label)}を一覧から削除" onclick="removeReward('${r.id}','${kind}')">×</button>
+  </div>`;
+}
+function rewardAutoSection(e,kind,items,current,title){
+  const milestone=kind==="milestone", key=milestone?"value":"points";
+  const sorted=[...items].sort((a,b)=>a[key]-b[key]);
+  let out=`<div class="rw-section"><h3>${esc(title)} <small>${sorted.length}件</small></h3>`;
+  if(!sorted.length) return out+`<div class="empty" style="padding:22px 10px">報酬は未登録です。</div></div>`;
+  const earned=current==null?[]:sorted.filter(r=>r[key]<=current);
+  const pending=sorted.filter(r=>current==null||r[key]>current);
+  out+=`<div class="reward-meta">${current!=null?`現在 ${fmt(current)}${milestone?"":"pt"} ／ 達成 ${fmt(earned.length)}件`:`現在の${milestone?esc(e.progressLabel||"メーター"):"累計pt"}を記録すると自動判定します`}。チェック操作は不要です。</div>`;
+  if(pending.length){
+    const next=pending[0];
+    out+=`<div class="reward-subtitle">次の報酬${current!=null?`（あと ${fmt(Math.max(0,next[key]-current))}${milestone?"":"pt"}）`:""}</div>`;
+    out+=rewardAutoRow(next,kind,current,true);
+    const soon=pending.slice(1,4);
+    if(soon.length){out+=`<div class="reward-subtitle">その次の報酬</div>`+soon.map(r=>rewardAutoRow(r,kind,current)).join("");}
+    const rest=pending.slice(4);
+    if(rest.length){
+      /* ガチャ券・回復薬・バモなど、さらに先の報酬から目立つ候補を先に見せる。 */
+      const featured=rest.filter(r=>/(ガチャ券|バモ|GP回復薬|選べる|月間ベストゴール)/.test(r.label)).slice(0,3);
+      if(featured.length){out+=`<div class="reward-subtitle">この先の注目報酬</div>`+featured.map(r=>rewardAutoRow(r,kind,current)).join("");}
+      const shown=new Set(featured.map(r=>r.id));
+      const hidden=rest.filter(r=>!shown.has(r.id));
+      if(hidden.length) out+=`<details class="reward-fold"><summary>ほかの未達成報酬 ${fmt(hidden.length)}件を表示</summary><div class="reward-fold-body">${hidden.map(r=>rewardAutoRow(r,kind,current)).join("")}</div></details>`;
+    }
+  }else out+=`<div class="reward-meta">登録されている報酬条件をすべて達成しています。</div>`;
+  if(earned.length){
+    out+=`<details class="reward-fold"><summary>獲得済みの報酬 ${fmt(earned.length)}件を表示</summary><div class="reward-fold-body">${earned.slice().reverse().map(r=>rewardAutoRow(r,kind,current)).join("")}</div></details>`;
+  }
+  return out+`</div>`;
+}
 function renderRewards(){
-  const e=ev(), b=ev().boards[0], curBoard=board();
-  const c=calc(e,curBoard), recs=sortedRecords(curBoard);
-  const myRank=latestRank(curBoard), prog=latestProgressValue(curBoard);
-  const rws=[...(e.rewards||[])].sort((a,x)=>a.points-x.points);
-  const ranks=[...(e.rankRewards||[])].sort((a,x)=>a.minRank-x.minRank);
-  const miles=[...(e.milestoneRewards||[])].sort((a,x)=>a.value-x.value);
-  let html=(e.strategyMode||"rank")!=="rank"?resourceStrategyHtml(e,curBoard,c):"";
-
-  html+=`<div class="rw-section"><h3>累計ポイント <small>${rws.length}件</small></h3>`;
-  if(rws.length){
-    const next=rws.find(r=>!r.done&&(c.myLast==null||r.points>c.myLast));
-    const reached=rws.filter(r=>c.myLast!=null&&r.points<=c.myLast&&!r.done);
-    if(next&&c.myLast!=null) html+=`<div class="next-rw">次の報酬まで <b>${fmt(next.points-c.myLast)}</b><br>${fmt(next.points)}：${esc(next.label)}</div>`;
-    if(reached.length) html+=`<div class="next-rw" style="border-left-color:var(--safe)">到達済み・未チェックの報酬が ${reached.length} 件あります</div>`;
-    html+=rws.map(r=>{ const reach=c.myLast!=null&&r.points<=c.myLast; return `<div class="rw ${r.done?"got":""} ${reach?"reach":""}"><button class="chk" onclick="toggleReward('${r.id}','cumulative')">✓</button><span class="pt">${fmt(r.points)}</span><span class="lb">${esc(r.label)}</span><button class="del" onclick="removeReward('${r.id}','cumulative')">×</button></div>`; }).join("");
-  }else html+=`<div class="empty" style="padding:22px 10px">累計報酬は未登録です。</div>`;
-  html+=`</div>`;
-
+  const e=ev(); if(!e) return;
+  const snap=rewardSnapshot(e);
+  const ranks=[...(e.rankRewards||[])].sort((a,b)=>a.minRank-b.minRank);
+  let html=`<div class="reward-hint">報酬は記録値から<strong>自動で達成判定</strong>します。ゲーム内で自動受取されるため、手帳でのチェックは不要です。ランキング報酬は終了時の順位で判定します。</div>`;
+  html+=rewardAutoSection(e,"cumulative",e.rewards||[],snap.points,"累計ポイント報酬");
   html+=`<div class="rw-section"><h3>ランキング報酬 <small>${ranks.length}帯</small></h3>`;
   if(ranks.length){
-    const cur=rankRewardTier(e,myRank), better=nextBetterRankTier(e,myRank);
-    if(myRank!=null){
-      html+=`<div class="next-rw">現在 ${fmt(myRank)}位 → ${cur?`${fmt(cur.minRank)}〜${fmt(cur.maxRank)}位帯：${esc(cur.label)}`:"登録済みの報酬帯外"}`;
-      if(better) html+=`<br>次の上位帯 ${fmt(better.minRank)}〜${fmt(better.maxRank)}位まで約 <b>${fmt(Math.max(0,myRank-better.maxRank))}</b> 順位`;
-      html+=`</div>`;
-    }
-    html+=ranks.map(r=>{ const current=cur&&cur.id===r.id; return `<div class="rw-tier ${current?"current":""}"><span class="range">${fmt(r.minRank)}〜${fmt(r.maxRank)}位</span><span class="label">${esc(r.label)}</span><span class="mark">${current?"● 現在":""}</span><button class="del" onclick="removeReward('${r.id}','ranking')">×</button></div>`; }).join("");
+    const cur=rankRewardTier(e,snap.rank), better=nextBetterRankTier(e,snap.rank);
+    const final=snap.rankConfirmed;
+    const title=final?"最終順位から判定した報酬":e.status==="done"?"最終順位の記録待ち":"現在の報酬帯（暫定）";
+    const label=cur?`${fmt(cur.minRank)}〜${fmt(cur.maxRank)}位：${esc(cur.label)}`:"該当する報酬帯がありません";
+    html+=`<div class="reward-ranking-current"><div class="k">${title}</div><div class="v">${snap.rank!=null?fmt(snap.rank)+"位":"順位未記録"}</div>
+      <div class="label">${snap.rank!=null?label:"順位を記録すると対象の報酬帯が表示されます"}</div>
+      <div class="note">${final?"終了時刻以降に記録した順位に基づく判定です。配布時期はゲーム内に従います。":e.status==="done"?"イベント終了時刻以降の確定順位を記録すると、報酬帯を確定表示します。":`開催中の順位・報酬帯は変動します。${better?`次の上位帯（${fmt(better.minRank)}〜${fmt(better.maxRank)}位）まで約${fmt(Math.max(0,snap.rank-better.maxRank))}順位。`:""}`}</div>
+    </div>`;
+    html+=`<details class="reward-fold"><summary>ランキング報酬一覧 ${fmt(ranks.length)}帯を表示</summary><div class="reward-fold-body">`;
+    html+=ranks.map(r=>{const current=cur&&cur.id===r.id;return `<div class="rw-tier ${current?"current":""}"><span class="range">${fmt(r.minRank)}〜${fmt(r.maxRank)}位</span><span class="label">${esc(r.label)}</span><span class="mark">${current?(final?"● 確定":"● 現在"):""}</span><button class="del" onclick="removeReward('${r.id}','ranking')">×</button></div>`;}).join("");
+    html+=`</div></details>`;
   }else html+=`<div class="empty" style="padding:22px 10px">ランキング報酬は未登録です。</div>`;
   html+=`</div>`;
-
-  if(e.progressLabel||miles.length){
-    html+=`<div class="rw-section"><h3>${esc(e.progressLabel||"イベント固有メーター")}報酬 <small>${miles.length}件</small></h3>`;
-    if(miles.length){
-      const next=nextMilestoneReward(e,prog);
-      if(prog!=null&&next) html+=`<div class="next-rw">${esc(e.progressLabel||"メーター")} ${fmt(prog)} → 次まで <b>${fmt(next.value-prog)}</b><br>${fmt(next.value)}：${esc(next.label)}</div>`;
-      html+=miles.map(r=>{ const reach=prog!=null&&r.value<=prog; return `<div class="rw ${r.done?"got":""} ${reach?"reach":""}"><button class="chk" onclick="toggleReward('${r.id}','milestone')">✓</button><span class="pt">${fmt(r.value)}</span><span class="lb">${esc(r.label)}</span><button class="del" onclick="removeReward('${r.id}','milestone')">×</button></div>`; }).join("");
-    }else html+=`<div class="empty" style="padding:22px 10px">${esc(e.progressLabel||"イベント固有")}報酬は未登録です。</div>`;
-    html+=`</div>`;
+  if(e.progressLabel||(e.milestoneRewards||[]).length){
+    html+=rewardAutoSection(e,"milestone",e.milestoneRewards||[],snap.progress,(e.progressLabel||"イベント固有メーター")+"報酬");
   }
-  if(!rws.length&&!ranks.length&&!miles.length) html=`<div class="empty">報酬が未登録です。<br>＋から累計・ランキング・イベント固有報酬を登録すると、<br>「今どこまで狙うべきか」を状況タブで判断できます。</div>`;
+  if(!(e.rewards||[]).length&&!ranks.length&&!(e.milestoneRewards||[]).length){
+    html=`<div class="empty">報酬が未登録です。<br>＋から累計・ランキング・イベント固有報酬を登録すると、状況タブで次の報酬を判断できます。</div>`;
+  }
   $("tab-rw").innerHTML=html;
-}
-function toggleReward(id,kind="cumulative"){
-  const e=ev(), arr=kind==="milestone"?(e.milestoneRewards||[]):(e.rewards||[]);
-  const r=arr.find(r=>r.id===id); if(!r)return; r.done=!r.done; saveDB(); renderRewards();
 }
 function removeReward(id,kind="cumulative"){
   const e=ev(); if(!confirm("この報酬を削除しますか？")) return;
@@ -3147,9 +3198,9 @@ function duplicateEvent(id){
       fixedLapModel:!!b.fixedLapModel,
       records:[],
     })),
-    rewards: (src.rewards||[]).map(r=>({id:uid(), points:r.points, label:r.label, done:false})),
+    rewards: (src.rewards||[]).map(r=>({id:uid(), points:r.points, label:r.label})),
     rankRewards:(src.rankRewards||[]).map(r=>({id:uid(),minRank:r.minRank,maxRank:r.maxRank,label:r.label})),
-    milestoneRewards:(src.milestoneRewards||[]).map(r=>({id:uid(),value:r.value,label:r.label,done:false})),
+    milestoneRewards:(src.milestoneRewards||[]).map(r=>({id:uid(),value:r.value,label:r.label})),
   };
   db.events.unshift(cp);
   saveDB();
@@ -3613,7 +3664,7 @@ function saveRewards(){
       if(m){ const a=Number(m[1].replace(/[,，]/g,"")),b=Number(m[2].replace(/[,，]/g,"")); if(a>0&&b>=a){e.rankRewards.push({id:uid(),minRank:a,maxRank:b,label:m[3].trim()});added++;}}
     }else{
       const m=line.match(/^([\d,，]+)\s+(.+)$/);
-      if(m){ const v=Number(m[1].replace(/[,，]/g,"")); if(v>0){ if(kind==="milestone")e.milestoneRewards.push({id:uid(),value:v,label:m[2].trim(),done:false}); else e.rewards.push({id:uid(),points:v,label:m[2].trim(),done:false}); added++;}}
+      if(m){ const v=Number(m[1].replace(/[,，]/g,"")); if(v>0){ if(kind==="milestone")e.milestoneRewards.push({id:uid(),value:v,label:m[2].trim()}); else e.rewards.push({id:uid(),points:v,label:m[2].trim()}); added++;}}
     }
   });
   if(!added){alert("読み取れる行がありませんでした。入力例を確認してください。");return;}
@@ -3643,9 +3694,9 @@ function loadEmblem202610Template(){
     [2,"ブーストホイッスル(銅)×1"],[4,"GP回復薬ハーフ×1"],[6,"ブーストホイッスル(銅)×1"],[8,"BP回復薬ミニ×2"],[12,"ブーストホイッスル(銅)×1"],[16,"GP回復薬ハーフ×1"],[20,"バモ(VM)×5"],[25,"DF特訓VR×5"],[30,"G55以上ガチャ券×1"],[35,"GP回復薬ハーフ×1"],[40,"ブーストホイッスル(銅)×1"],[45,"FW特訓VR×5"],[50,"アンロッキー×1"],[55,"G70以上ガチャ券×1"],[60,"GK特訓VR×5"],[65,"ブーストホイッスル(銅)×1"],[70,"G75以上ガチャ券×1"],[75,"GP回復薬×1"],[80,"MF特訓VR×5"],[85,"ブーストホイッスル(銀)×1"],[90,"BP回復薬×2"],[95,"バモ(VM)×15"],[100,"G80以上ガチャ券×1"],[105,"ブーストホイッスル(銀)×1"],[110,"お気に入りクラブG70以上ガチャ券×1"],[115,"ブーストホイッスル(金)×1"],[120,"G85以上ガチャ券×1"]
   ];
   const addUnique=(arr,items,keyFn)=>items.forEach(x=>{const key=keyFn(x);if(!arr.some(y=>keyFn(y)===key))arr.push(x);});
-  addUnique(e.rewards,cumulative.map(x=>({id:uid(),points:x[0],label:x[1],done:false})),x=>x.points+"|"+x.label);
+  addUnique(e.rewards,cumulative.map(x=>({id:uid(),points:x[0],label:x[1]})),x=>x.points+"|"+x.label);
   addUnique(e.rankRewards,ranking.map(x=>({id:uid(),minRank:x[0],maxRank:x[1],label:x[2]})),x=>x.minRank+"-"+x.maxRank);
-  addUnique(e.milestoneRewards,miles.map(x=>({id:uid(),value:x[0],label:x[1],done:false})),x=>x.value+"|"+x.label);
+  addUnique(e.milestoneRewards,miles.map(x=>({id:uid(),value:x[0],label:x[1]})),x=>x.value+"|"+x.label);
   saveDB(); closeModal("m-rw"); renderEvent(); toast("エンブレム報酬テンプレートを追加しました");
 }
 
