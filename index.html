@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261021.1";
+window.__BUILD__ = "20261030.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -877,7 +877,8 @@ select{appearance:none;-webkit-appearance:none;
     </select>
     <div class="m-sub" id="rw-help">1行＝「必要ポイント 報酬名」</div>
     <textarea id="rw-bulk" style="min-height:150px" placeholder="5000 錦秋コイン×10&#10;125000 GP回復薬ハーフ×1"></textarea>
-    <div class="rw-tools"><button id="rw-emblem-template" class="hidden" onclick="loadEmblem202610Template()">2026/10 エンブレム報酬テンプレート</button></div>
+    <div class="rw-tools"><button id="rw-emblem-template" class="hidden" onclick="loadEmblem202610Template()">2026/10 エンブレム報酬テンプレート</button>
+      <button id="rw-town-template" class="hidden" onclick="loadTown202610Template()">2026/10 つくスタ報酬テンプレート</button></div>
     <button class="btn primary" onclick="saveRewards()">追加</button>
     <button class="btn ghost" onclick="closeModal('m-rw')">キャンセル</button>
   </div>
@@ -2588,6 +2589,16 @@ function renderRewards(){
   if(!(e.rewards||[]).length&&!ranks.length&&!(e.milestoneRewards||[]).length){
     html=`<div class="empty">報酬が未登録です。<br>＋から累計・ランキング・イベント固有報酬を登録すると、状況タブで次の報酬を判断できます。</div>`;
   }
+  if(isTown202610(e)){
+    html+=`<div class="rw-section" style="padding:12px">
+      <h3>錦秋つくスタ報酬</h3>
+      <div class="note" style="margin-bottom:10px">ゲーム画面で確認した累計にぎわいPt報酬とランキング報酬を一括登録できます。既存の記録・設定・報酬は消しません。</div>
+      <button class="btn ghost" onclick="loadTown202610Template()">2026/10 つくスタ報酬を一括追加</button>
+      <details class="reward-fold" style="margin-top:12px"><summary>ランダム報酬について</summary>
+        <div class="reward-fold-body"><div class="note">試合勝利で出現する虹・金・銅の宝箱、スタジアム・タウンでのランダム出現報酬、シルバー／ゴールドフェス報酬、レアなたてものの報酬は獲得が確定しないため、自動達成判定に含めていません。タウンLv報酬の各条件も未確認のため、登録対象外です。</div></div>
+      </details>
+    </div>`;
+  }
   $("tab-rw").innerHTML=html;
 }
 function removeReward(id,kind="cumulative"){
@@ -3637,9 +3648,17 @@ function deleteRecord(){
 }
 
 /* ---------- 報酬 ---------- */
+function isTown202610(e){
+  if(!e || e.type!=="town") return false;
+  const start=Number(e.start);
+  const dateMatch=Number.isFinite(start) && start>=Date.parse("2026-10-29T00:00:00+09:00")
+    && start<Date.parse("2026-11-03T00:00:00+09:00");
+  return dateMatch || /錦秋.*(つくろう|スタジアムタウン|つくスタ)/.test(e.name||"");
+}
 function openRewardModal(){
   $("rw-bulk").value=""; $("rw-kind").value="cumulative";
   $("rw-emblem-template").classList.toggle("hidden",ev().type!=="emblem");
+  $("rw-town-template").classList.toggle("hidden",!isTown202610(ev()));
   onRewardKindChange(); openModal("m-rw");
 }
 function onRewardKindChange(){
@@ -3698,6 +3717,30 @@ function loadEmblem202610Template(){
   addUnique(e.rankRewards,ranking.map(x=>({id:uid(),minRank:x[0],maxRank:x[1],label:x[2]})),x=>x.minRank+"-"+x.maxRank);
   addUnique(e.milestoneRewards,miles.map(x=>({id:uid(),value:x[0],label:x[1]})),x=>x.value+"|"+x.label);
   saveDB(); closeModal("m-rw"); renderEvent(); toast("エンブレム報酬テンプレートを追加しました");
+}
+
+/* ---------- 錦秋つくスタ（2026/10）の固定報酬テンプレート ---------- */
+function loadTown202610Template(){
+  const e=ev(); if(!isTown202610(e))return;
+  if(!confirm(`「${e.name||"（無題）"}」に2026年10月つくスタ報酬を登録しますか？\n登録済みの報酬と実績は削除・上書きしません。`))return;
+  const cumulative=[[1000,"にぎわいボール×3"],[10000,"錦秋コイン×10"],[50000,"プレーメーカーLiteガチャ券×1"],[200000,"にぎわいボール×3"],[300000,"GP回復薬ハーフ×1"],[400000,"センススロット強化ソックス(小)×1"],[500000,"錦秋コイン×10"],[600000,"プレーメーカーLiteガチャ券×1"],[700000,"にぎわいボール×3"],[800000,"センススロット強化ソックス(小)×2"],[900000,"G55以上ガチャ券×1"],[1000000,"錦秋コイン×10"],[1100000,"GP回復薬ハーフ×1"],[1200000,"G55以上ガチャ券×1"],[1300000,"ヒーローチケット×1"],[1400000,"BP回復薬ミニ×2"],[1600000,"プレーメーカーLiteガチャ券×1"],[1800000,"にぎわいボール×3"],[2000000,"錦秋コイン×10"],[2200000,"センススロット強化ソックス(中)×1"],[2400000,"GP回復薬ハーフ×1"],[2600000,"G55以上ガチャ券×1"],[2800000,"BP回復薬ミニ×2"],[3000000,"つくろう！スタジアムタウン勲章(2026/10)×1"],[3200000,"センススロット強化ソックス(中)×1"],[3400000,"GP回復薬ハーフ×1"],[3600000,"G70以上ガチャ券×1"],[3800000,"BP回復薬ミニ×2"],[4000000,"お気に入りクラブガチャ券×1"],[4200000,"にぎわいボール×3"],[4400000,"[銀]9月度月間MVPガチャ券×1"],[4600000,"センススロット強化ソックス(中)×1"],[4800000,"プレーメーカーLiteガチャ券×1"],[5000000,"BP回復薬×2"],[5200000,"センススロット強化ソックス(中)×2"],[5400000,"限界突破ミサンガ(小)×1"],[5600000,"錦秋コイン×10"],[5800000,"G70以上ガチャ券×1"],[6000000,"にぎわいボール×3"],[6200000,"G40以上グローリーガチャ券×1"],[6400000,"ヒーローチケット×1"],[6800000,"限界突破ミサンガ(小)×1"],[7200000,"BP回復薬×2"],[7600000,"グローリースパイク(銅)×1"],[8000000,"錦秋コイン×20"],[8400000,"BP回復薬×2"],[8800000,"G75以上ガチャ券×1"],[9200000,"にぎわいボール×3"],[9600000,"センススロット強化ソックス(中)×2"],[10000000,"プレーメーカーガチャ券×1"],[11000000,"GP回復薬×2"],[12000000,"G80以上ガチャ券×1"],[14000000,"BP回復薬×2"],[16000000,"G85以上ガチャ券×1"],[19000000,"GP回復薬×2"],[22000000,"グローリースパイク(銀)×1"],[26000000,"GP回復薬×2"],[30000000,"ブーストホイッスル(金)×1"],[35000000,"お気に入りクラブG40以上グローリーガチャ券×1"],[40000000,"[金]レギュラー2026/27ガチャ券×1"]];
+  const ranking=[[1,3,"AランクWセンス付き選べる[金]9月度月間MVPガチャ券×1＋選べるプレーメーカーガチャ券×1＋G85以上ガチャ券×1＋限界突破ミサンガ(大)×3＋ブーストホイッスル(金)×3"],[4,10,"AランクWセンス付き選べる[金]9月度月間MVPガチャ券×1＋選べるプレーメーカーガチャ券×1＋G85以上ガチャ券×1＋ブーストホイッスル(金)×2"],[11,50,"9月度月間MVP・ベストゴールコイン×16＋G89以上プレーメーカーガチャ券×1＋G85以上ガチャ券×1＋ブーストホイッスル(金)×1"],[51,100,"9月度月間MVP・ベストゴールコイン×8＋[G89以上確率50%]G85以上プレーメーカーガチャ券×1＋G85以上ガチャ券×1＋ブーストホイッスル(銀)×1"],[101,300,"9月度月間MVP・ベストゴールコイン×4＋[G89以上確率30%]G85以上プレーメーカーガチャ券×1＋G85以上ガチャ券×1"],[301,500,"9月度月間MVP・ベストゴールコイン×1＋G85以上プレーメーカーガチャ券×1＋G85以上ガチャ券×1"],[501,1000,"G85以上プレーメーカーガチャ券×1＋G80以上ガチャ券×1"],[1001,3000,"プレーメーカーガチャ券×1＋G80以上ガチャ券×1"],[3001,5000,"G75以上ガチャ券×1"],[5001,10000,"G70以上ガチャ券×1"],[10001,30000,"G25以上グローリーガチャ券×1"],[30001,999999,"1000資金"]];
+  e.rewards=Array.isArray(e.rewards)?e.rewards:[];
+  e.rankRewards=Array.isArray(e.rankRewards)?e.rankRewards:[];
+  let added=0, skipped=0;
+  cumulative.forEach(([points,label])=>{
+    if(e.rewards.some(r=>Number(r.points)===points)){skipped++;return;}
+    e.rewards.push({id:uid(),points,label}); added++;
+  });
+  ranking.forEach(([minRank,maxRank,label])=>{
+    /* 既存の順位帯との部分重複も避け、現在の報酬帯判定を壊さない。 */
+    if(e.rankRewards.some(r=>Number(r.minRank)<=maxRank&&Number(r.maxRank)>=minRank)){skipped++;return;}
+    e.rankRewards.push({id:uid(),minRank,maxRank,label}); added++;
+  });
+  if(added)saveDB();
+  closeModal("m-rw"); renderEvent();
+  toast(added?`つくスタ報酬を${added}件追加しました`:`既に登録済みです`);
+  if(skipped && added)alert(`${added}件追加しました。既存の報酬条件と重なる${skipped}件は上書きせず省略しました。`);
 }
 
 /* ---------- データ管理 ---------- */
