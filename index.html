@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261105.2";
+window.__BUILD__ = "20261105.3";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -3160,7 +3160,7 @@ function townModelDefaults(e,b){
   return {tokko:initialTokko, winBase:1000, townBase:3000,
     gpPer:20, minPer:1.5, townLevel:isTown202610(e)?65:null,
     gpBudget:120, minBudget:90, timeLimitEnabled:false,
-    compareTokko:1300, targetPt:null};
+    compareTokko:1300, targetPt:null, targetRank:targetRankOf(e,b)||50, assumedBorder:null};
 }
 function townModelOf(e,b){
   const m=Object.assign(townModelDefaults(e,b),b&&b.townModel?b.townModel:{});
@@ -3192,11 +3192,40 @@ function townCompute(m,tokkoOverride){
   return {t,winPt,townPt,per,gp,mins,laps,byGp,byTime,timeLimitEnabled,
     totalPt:laps*per, consumedGp:laps*gp, consumedMin:laps*mins};
 }
+/* 順位目標から必要ポイントを取得。記録がない順位のボーダーは推測しない。 */
+function townTargetLine(m,e,b){
+  const rank=Number(m.targetRank)||targetRankOf(e,b)||50;
+  const assumed=numOrNull(m.assumedBorder);
+  if(assumed!=null&&assumed>0&&isFinite(assumed)){
+    return {rank,finalPt:Math.ceil(assumed),basis:"manual",count:0};
+  }
+  const series=borderSeries(b,rank);
+  /* 少なくとも同じ順位の異なる時刻での2点が必要。 */
+  if(series.length<2) return {rank,finalPt:null,basis:"missing",count:series.length};
+  const result=calc(e,b,rank);
+  if(result&&result.pred!=null&&isFinite(result.pred)&&result.safety!=null&&isFinite(result.safety)){
+    return {rank,finalPt:Math.ceil(result.safety),basis:"forecast",count:series.length,
+      pred:Math.round(result.pred)};
+  }
+  return {rank,finalPt:null,basis:"missing",count:series.length};
+}
+/* 丸め誤差を避けてGP上限内で必要な最低特効（整数％）を算出。 */
+function townRequiredTokko(m,laps,requiredPt){
+  if(!(laps>0))return null;
+  const baseA=numOrNull(m.winBase),baseB=numOrNull(m.townBase);
+  if(baseA==null||baseB==null||baseA+baseB<=0)return null;
+  const total=t=>laps*(Math.round(baseA*(1+t/100))+Math.round(baseB*(1+t/100)));
+  if(requiredPt<=total(0))return 0;
+  let lo=0,hi=100;
+  while(total(hi)<requiredPt&&hi<10000000)hi*=2;
+  if(hi>10000000)hi=10000000;
+  if(total(hi)<requiredPt)return null;
+  while(lo<hi){const mid=Math.floor((lo+hi)/2);if(total(mid)>=requiredPt)hi=mid;else lo=mid+1;}
+  return lo;
+}
 function townSimulationResult(m,e,b){
-  const x=townCompute(m),y=townCompute(m,m.compareTokko);
-  if(!x) return `<div class="tm-notice">特効・基本Pt・GPを確認してください。時間制限を使う場合だけプレイ可能時間も入力してください。</div>`;
-  const target=numOrNull(m.targetPt);
-  const hasTarget=target!=null&&target>0;
+  const x=townCompute(m);
+  if(!x) return `<div class="tm-notice">最新特効・基本Pt・GPを確認してください。時間制限を使う場合だけプレイ可能時間も入力してください。</div>`;
   let out=`<div class="tm-sum">
     <div class="tm-stat"><div class="k">勝利によるにぎわいPt</div><div class="v">${fmt(x.winPt)}<span class="u">Pt/試合</span></div></div>
     <div class="tm-stat"><div class="k">タウン報酬のにぎわいPt</div><div class="v">${fmt(x.townPt)}<span class="u">Pt/試合</span></div></div>
@@ -3204,37 +3233,47 @@ function townSimulationResult(m,e,b){
     <div class="tm-stat"><div class="k">${x.timeLimitEnabled?"GPと時間で回せる試合数":"GPで回せる試合数"}</div><div class="v">${fmt(x.laps)}<span class="u">試合</span></div></div>
   </div>
   <div class="tm-notice"><strong>このGP予算での通常時獲得見込み：${fmt(x.totalPt)}Pt</strong><br>
-  使用GPは${fmt(x.consumedGp)}GP、必要な実プレイ時間は約${fmt1(x.consumedMin)}分（${fmt1(x.consumedMin/60)}時間）。
-  ${x.timeLimitEnabled?`時間制限を反映：GPなら${fmt(x.byGp)}試合、時間内なら${fmt(x.byTime)}試合。`:`※プレイ時間による制限なし。記載の時間は必要量の目安です。`}<br>
-  HARDはにぎわいPt報酬1枠・タウンコイン1枠・アイテム1枠。Pt報酬を複数回足しません。</div>`;
-  if(y){
-    out+=`<div class="tm-sep">特効を変えたときの比較（同じGP${x.timeLimitEnabled?"・時間上限":""}）</div>
-      <table class="tm-compare"><thead><tr><th>想定特効</th><th>Pt/試合</th><th>合計Pt</th></tr></thead><tbody>
-        <tr><td>現在 ${fmt1(x.t)}%</td><td>${fmt(x.per)}</td><td>${fmt(x.totalPt)}</td></tr>
-        <tr><td>比較 ${fmt1(y.t)}%</td><td>${fmt(y.per)}</td><td>${fmt(y.totalPt)}</td></tr>
-      </tbody></table>
-      <div class="tm-sub">比較特効は仮定です。特効を上げるために必要なガチャ・バモは、この計算に含めません。</div>`;
-  }
-  if(hasTarget){
-    const lapsNeeded=Math.ceil(target/x.per-1e-10);
-    const needGp=lapsNeeded*x.gp,needMin=lapsNeeded*x.mins;
-    const gpShort=Math.max(0,needGp-numOrNull(m.gpBudget));
-    const minShort=x.timeLimitEnabled?Math.max(0,needMin-numOrNull(m.minBudget)):0;
-    out+=`<div class="tm-sep">指定した追加獲得Ptを達成するには（通常時のみ）</div>
-      <div class="tm-sum">
-       <div class="tm-stat"><div class="k">必要試合数</div><div class="v">${fmt(lapsNeeded)}<span class="u">試合</span></div></div>
-       <div class="tm-stat"><div class="k">必要GP</div><div class="v">${fmt(needGp)}<span class="u">GP</span></div></div>
-       <div class="tm-stat"><div class="k">必要実プレイ時間</div><div class="v">${fmt1(needMin/60)}<span class="u">時間</span></div></div>
-       <div class="tm-stat"><div class="k">現予算との差</div><div class="v">${gpShort?`+${fmt(gpShort)}GP`:minShort?`+${fmt1(minShort)}分`:"予算内"}</div></div>
-      </div>`;
-    if(x.laps>0){
-      const base=numOrNull(m.winBase)+numOrNull(m.townBase);
-      const needTokko=Math.max(0,100*(target/(x.laps*base)-1));
-      out+=`<div class="tm-notice">${x.timeLimitEnabled?"GP・時間の上限":"GPの上限"}（${fmt(x.laps)}試合）を変えずに目標を達成する理論上の必要特効：<strong>${fmt1(needTokko)}%</strong>。<br>
-      ※端数やゲーム側の丸め方によって多少前後します。フェス・Lvアップ分は含みません。</div>`;
-    }else out+=`<div class="tm-notice">このGP予算${x.timeLimitEnabled?"・時間制限":""}では1試合もできないため、必要特効は逆算できません。</div>`;
+  使用GP ${fmt(x.consumedGp)}、必要プレイ時間 約${fmt1(x.consumedMin)}分。
+  ${x.timeLimitEnabled?`時間上限適用（GPなら${fmt(x.byGp)}試合、時間内なら${fmt(x.byTime)}試合）。`:`時間制限はかけていません。`}<br>
+  HARDはにぎわいPt・タウンコイン・宝箱アイテムを各1枠。フェス・Lvアップの追加Ptは含みません。</div>`;
+  const goal=townTargetLine(m,e,b), my=latestNonNull(b,"myPoints");
+  const rankText=`${fmt(goal.rank)}位以内`;
+  out+=`<div class="tm-sep">${rankText}を狙うための逆算</div>`;
+  if(goal.finalPt==null){
+    out+=`<div class="tm-notice"><strong>必要特効：現時点では算出不可</strong><br>
+      ${rankText}の終了時ボーダー予測に使える記録が不足しています（この順位のボーダー記録 ${goal.count}件）。
+      実際に見えていない50位や100位の数字を、10位・5,000位から補間して作ることはしません。<br>
+      参考値がある場合だけ「仮の最終ボーダーPt」を入力すると、仮定に基づいて試算できます。</div>`;
+  }else if(my==null){
+    out+=`<div class="tm-notice"><strong>自分の累計Ptが未記録です。</strong><br>最新の累計Ptを記録すると、${rankText}まで必要な追加Ptと特効を逆算します。</div>`;
   }else{
-    out+=`<div class="tm-sub">目標獲得Ptを入力すると、必要GP・必要時間・理論上の必要特効も逆算できます。目標順位のボーダーが不明なら、順位への換算は行いません。</div>`;
+    const need=Math.max(0,goal.finalPt-my);
+    const lapsNeeded=Math.ceil(need/x.per-1e-10);
+    const needGp=lapsNeeded*x.gp,needMin=lapsNeeded*x.mins;
+    const gapGp=Math.max(0,needGp-numOrNull(m.gpBudget));
+    const needTokko=townRequiredTokko(m,x.laps,need);
+    const label=goal.basis==="manual"?"手入力の仮定ライン":"既存のボーダー予測＋安全マージン";
+    out+=`<div class="tm-notice"><strong>推定目標ライン ${fmt(goal.finalPt)}Pt</strong>（${label}）<br>
+      記録済みの累計 ${fmt(my)}Ptとの差は <strong>${fmt(need)}Pt</strong>。<br>
+      ${goal.basis==="forecast"?`予測ボーダー ${fmt(goal.pred)}Pt（この順位の記録 ${goal.count}点）。現状の記録数での暫定予測です。`:`この目標Ptはユーザーの仮定であり、実際の${rankText}ボーダーを予測した値ではありません。`}</div>
+    <div class="tm-sum">
+      <div class="tm-stat"><div class="k">現在の特効 ${fmt1(x.t)}% で必要なGP</div><div class="v">${fmt(needGp)}<span class="u">GP</span></div></div>
+      <div class="tm-stat"><div class="k">現在の特効で必要な時間</div><div class="v">${fmt1(needMin/60)}<span class="u">時間</span></div></div>
+      <div class="tm-stat"><div class="k">現在の特効で必要な試合</div><div class="v">${fmt(lapsNeeded)}<span class="u">試合</span></div></div>
+      <div class="tm-stat"><div class="k">設定GP予算との差</div><div class="v">${gapGp>0?`不足 ${fmt(gapGp)}`:"GP予算内"}<span class="u">${gapGp>0?"GP":""}</span></div></div>
+    </div>`;
+    if(need<=0){
+      out+=`<div class="tm-notice"><strong>記録時点では、この目標ラインを超えています。</strong>ただし終了時の順位を保証するものではありません。</div>`;
+    }else if(x.laps===0){
+      out+=`<div class="tm-notice"><strong>必要特効：計算不可</strong>。設定したGP${x.timeLimitEnabled?"・時間":""}では1試合もできません。</div>`;
+    }else if(needTokko==null){
+      out+=`<div class="tm-notice"><strong>必要特効：試算範囲外</strong>。非常に大きな追加Ptが必要です。</div>`;
+    }else{
+      const enough=needTokko<=x.t;
+      out+=`<div class="tm-notice"><strong>${rankText}を、設定した ${fmt(x.consumedGp)}GP・約${fmt1(x.consumedMin/60)}時間以内で狙うための理論上の特効：${fmt(needTokko)}%</strong><br>
+        ${enough?"現在の特効でも通常時の試算上は目標Ptに到達します。":`現在の特効 ${fmt1(x.t)}% では、このGP予算に収まりません。`}
+        フェス・タウンLvアップによる上振れ、特効ガチャの費用、GP自然回復、ボーダー変動は別扱いです。</div>`;
+    }
   }
   return out;
 }
@@ -3260,16 +3299,23 @@ function townSimulatorHtml(e,b,c){
       ${stock!=null&&current!=null?`<button class="tm-btn" onclick="townUseSavedGp()">現在GP＋回復薬を予算に入れる（${fmt(current+stock)}GP）</button>`:""}<br>
       これは試算用の予算設定です。回復薬をゲーム内で消費する操作ではありません。</div>`;
   }
-  let rankHint=`<div class="tm-sub">順位は<strong>実際に記録した順位別ボーダー</strong>から別途判断します。今回の数値だけでは50位・100位の必要Ptや到達順位は断定できません。</div>`;
-  if(c&&c.need!=null&&c.pred!=null&&isFinite(c.pred)){
-    rankHint=`<div class="tm-sub">手帳の「${fmt(c.tRank)}位」終了時ボーダー予測から、追加必要Ptの参考値は${fmt(Math.max(0,c.need))}Ptです。<button class="tm-btn" onclick="townUseForecastNeed()">この値を目標Pt欄に反映</button><br>ボーダー推定に十分な記録があるかを確認してから使ってください。</div>`;
-  }
-  return `<div class="card tm-card"><div class="tm-title"><h3>つくスタ｜GP・特効・時間の試算</h3><span class="tag">HARD・通常時のみ</span></div>
-    <p class="tm-lead">実測の計算式：<strong>(勝利基本Pt＋タウン報酬基本Pt) × (1＋特効%÷100)</strong>。<br>
-    HARDはPt・コイン・アイテムが1枠ずつ。フェスやLvアップによる追加Ptは含みません。</p>
+  return `<div class="card tm-card"><div class="tm-title"><h3>つくスタ｜狙う順位から逆算</h3><span class="tag">HARD・通常時のみ</span></div>
+    <p class="tm-lead">まず<strong>目標順位</strong>を決め、これまで記録したボーダーと自分の累計Ptから、必要なGP・時間・特効を逆算します。<br>
+    未確認の順位ボーダーは推測しません。基本Ptの計算はHARD通常時のみです。</p>
+    <div class="tm-sep">目標を設定</div>
+    <div class="tm-form">
+      <div class="f"><label for="tm-goal-rank">狙う順位（ランイベの報酬順位）</label>
+        <select id="tm-goal-rank" onchange="townChangeTargetRank()">
+          ${[...new Set([10,50,100,300,500,1000,3000,5000,10000,30000,Number(m.targetRank)||50])].sort((a,b)=>a-b)
+            .map(r=>`<option value="${r}" ${Number(m.targetRank)===r?"selected":""}>${fmt(r)}位以内</option>`).join("")}
+        </select>
+      </div>
+      ${townNumberField("tm-assumed-border","仮の最終ボーダーPt（任意）",m.assumedBorder,"1","（実測がないときだけ）")}
+    </div>
+    <div class="tm-sub">この順位は<strong>この試算専用</strong>で、状況タブの既存の目標順位は変更しません。仮のボーダーPtが入力されていればそれを優先し、空欄なら選んだ順位の既存予測を使います。予測できないときは「算出不可」と表示します。</div>
+    <div class="tm-sep">現在の獲得効率</div>
     <div class="tm-form">
       ${townNumberField("tm-tokko","現在の特効（%）",m.tokko,"1",savedTokko!=null?"（最新記録から自動反映）":"（未記録・仮入力）",savedTokko!=null)}
-      ${townNumberField("tm-cmp","比較する特効（%）",m.compareTokko,"1")}
       ${townNumberField("tm-win","試合勝利の基本Pt",m.winBase,"1")}
       ${townNumberField("tm-town","タウン報酬の基本Pt",m.townBase,"1",savedBase!=null?"（最新記録から自動反映）":"（実測した値を入力）",savedBase!=null)}
       ${townNumberField("tm-level","タウンLv",m.townLevel,"1",savedLevel!=null?"（最新記録から自動反映）":"（実測した値を入力）",savedLevel!=null)}
@@ -3282,7 +3328,6 @@ function townSimulatorHtml(e,b,c){
     <div class="tm-sep">使用するGPを指定（時間の入力は不要）</div>
     <div class="tm-form">
       ${townNumberField("tm-budget","今回使うGP予算",m.gpBudget,"1")}
-      ${townNumberField("tm-target","この先に獲得したいPt（任意）",m.targetPt,"1")}
     </div>
     <label class="tm-limit"><input id="tm-limit" type="checkbox" ${m.timeLimitEnabled?"checked":""} onchange="updateTownTimeLimit()">プレイ可能時間も制限する（任意）</label>
     <div id="tm-time-wrap" class="tm-form ${m.timeLimitEnabled?"":"hidden"}">
@@ -3290,13 +3335,17 @@ function townSimulatorHtml(e,b,c){
     </div>
     ${stockHint}
     <div id="tm-output">${townSimulationResult(m,e,b)}</div>
-    ${rankHint}
-    <div class="tm-sub">※数値はこのイベントのボードに保存します。1,300%などの比較値は仮定。上振れを除いた基準値であり、最終順位を保証しません。</div>
+    <div class="tm-sub">※つくスタ通常時のGP・特効シミュレーションです。順位別のボーダーは不確実で、必要特効が計算できても順位を保証しません。BPを使う別イベントの分析は今後の対象です。</div>
   </div>`;
 }
 function townReadNum(id){
   const el=$(id); if(!el)return null;
   return el.value.trim()===""?null:Number(el.value);
+}
+function townChangeTargetRank(){
+  /* 順位を変えたら、前の順位について手入力した仮ラインを引き継がない。 */
+  if($("tm-assumed-border"))$("tm-assumed-border").value="";
+  updateTownModel();
 }
 function updateTownTimeLimit(){
   const box=$("tm-limit"),wrap=$("tm-time-wrap");
@@ -3306,11 +3355,13 @@ function updateTownTimeLimit(){
 }
 function updateTownModel(){
   const e=ev(), b=board(); if(!e||e.type!=="town"||!b)return;
-  const m={tokko:townReadNum("tm-tokko"),compareTokko:townReadNum("tm-cmp"),
+  const old=b.townModel||{};
+  const m={tokko:townReadNum("tm-tokko"),compareTokko:old.compareTokko,
     winBase:townReadNum("tm-win"),townBase:townReadNum("tm-town"),townLevel:townReadNum("tm-level"),
     gpPer:townReadNum("tm-gp"),minPer:townReadNum("tm-min"),
     gpBudget:townReadNum("tm-budget"),minBudget:townReadNum("tm-time"),
-    timeLimitEnabled:!!($("tm-limit")&&$("tm-limit").checked),targetPt:townReadNum("tm-target")};
+    timeLimitEnabled:!!($("tm-limit")&&$("tm-limit").checked),targetPt:old.targetPt,
+    targetRank:townReadNum("tm-goal-rank"),assumedBorder:townReadNum("tm-assumed-border")};
   b.townModel=m;saveDB();
   const el=$("tm-output"); if(el)el.innerHTML=townSimulationResult(townModelOf(e,b),e,b);
 }
@@ -3321,13 +3372,6 @@ function townUseSavedGp(){
   $("tm-budget").value=String(g+h);
   updateTownModel();
 }
-function townUseForecastNeed(){
-  const e=ev(),b=board(); if(!e||!b)return;
-  const c=calc(e,b);if(c.need==null||c.pred==null||!isFinite(c.pred))return;
-  $("tm-target").value=String(Math.max(0,Math.ceil(c.need)));
-  updateTownModel();
-}
-
 /* ---------- 周回コスト（実測ログ） ---------- */
 function lapFit(b){
   /* 特効%→1周pt の最小二乗回帰。異なる特効の実測が2点以上で有効 */
