@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261105.3";
+window.__BUILD__ = "20261109.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -913,7 +913,8 @@ select{appearance:none;-webkit-appearance:none;
     <div class="m-sub" id="rw-help">1行＝「必要ポイント 報酬名」</div>
     <textarea id="rw-bulk" style="min-height:150px" placeholder="5000 錦秋コイン×10&#10;125000 GP回復薬ハーフ×1"></textarea>
     <div class="rw-tools"><button id="rw-emblem-template" class="hidden" onclick="loadEmblem202610Template()">2026/10 エンブレム報酬テンプレート</button>
-      <button id="rw-town-template" class="hidden" onclick="loadTown202610Template()">2026/10 つくスタ報酬テンプレート</button></div>
+      <button id="rw-town-template" class="hidden" onclick="loadTown202610Template()">2026/10 つくスタ報酬テンプレート</button>
+      <button id="rw-supporter-template" class="hidden" onclick="loadSupporter202611Template()">2026/11 あつサポ報酬テンプレート</button></div>
     <button class="btn primary" onclick="saveRewards()">追加</button>
     <button class="btn ghost" onclick="closeModal('m-rw')">キャンセル</button>
   </div>
@@ -994,7 +995,7 @@ const EVENT_TYPES = [
   {id:"media",   name:"マスメディア",             pt:"コイン"},
   {id:"other",   name:"その他",                   pt:"Pt"},
 ];
-const DEFAULT_RANKS = [10,50,100,300,500,1000];
+const DEFAULT_RANKS = [10,50,100,300,500,1000,3000,10000];
 /* マスメディアのメディア一覧（プルダウン候補。ここにないものは自由入力できる） */
 const MEDIA_LIST = [
   "メインホール",
@@ -2637,6 +2638,16 @@ function renderRewards(){
       </details>
     </div>`;
   }
+  if(isSupporter202611(e)){
+    html+=`<div class="rw-section" style="padding:12px">
+      <h3>2026/11 錦秋あつサポ報酬</h3>
+      <div class="note" style="margin-bottom:10px">2026年11月9日開始分のゲーム内スクショで確認した累計サポーターPt、ランキング、到達ステージの報酬を登録します。記録や既存の報酬は削除しません。</div>
+      <button class="btn ghost" onclick="loadSupporter202611Template()">11月あつサポ報酬を一括追加</button>
+      <details class="reward-fold" style="margin-top:12px"><summary>ギフト・フラッグコンプリートについて</summary>
+        <div class="reward-fold-body"><div class="note">ギフトサポーターの抽選報酬は確定獲得ではないため、自動達成判定に含めていません。フラッグコンプリートはゲーム内の独立条件で管理するため、この報酬テンプレートの累計Pt・ステージ到達には含めていません。順位報酬のコインは9月度で、10月度コインではありません。</div></div>
+      </details>
+    </div>`;
+  }
   $("tab-rw").innerHTML=html;
 }
 function removeReward(id,kind="cumulative"){
@@ -3931,6 +3942,7 @@ function openRewardModal(){
   $("rw-bulk").value=""; $("rw-kind").value="cumulative";
   $("rw-emblem-template").classList.toggle("hidden",ev().type!=="emblem");
   $("rw-town-template").classList.toggle("hidden",!isTown202610(ev()));
+  $("rw-supporter-template").classList.toggle("hidden",!isSupporter202611(ev()));
   onRewardKindChange(); openModal("m-rw");
 }
 function onRewardKindChange(){
@@ -4013,6 +4025,54 @@ function loadTown202610Template(){
   closeModal("m-rw"); renderEvent();
   toast(added?`つくスタ報酬を${added}件追加しました`:`既に登録済みです`);
   if(skipped && added)alert(`${added}件追加しました。既存の報酬条件と重なる${skipped}件は上書きせず省略しました。`);
+}
+
+/* ---------- 2026/11 錦秋の集まれ！サポーター！：実測スクショ報酬 ---------- */
+function isSupporter202611(e){
+  if(!e||e.type!=="supporter") return false;
+  const start=Number(e.start);
+  const dateMatch=Number.isFinite(start)&&start>=Date.parse("2026-11-09T00:00:00+09:00")
+    &&start<Date.parse("2026-11-17T00:00:00+09:00");
+  const nameMatch=/(2026\/?11|11月).*?(集まれ|サポーター|あつサポ)/.test(e.name||"")
+    || /錦秋.*(集まれ|サポーター|あつサポ)/.test(e.name||"");
+  return dateMatch||nameMatch;
+}
+function loadSupporter202611Template(){
+  const e=ev();if(!isSupporter202611(e))return;
+  if(!confirm(`「${e.name||"（無題）"}」に11月9日開始の錦秋あつサポ報酬を一括登録しますか？\n既存の記録と報酬は変更しません。別の開催回ならキャンセルしてください。`))return;
+  const cumulative=[[1111,"スタジアムグルメ×11"],[3000,"フォーカスドプレイヤー第2弾Liteガチャ券×1"],[4000,"GP回復薬ハーフ×5"],[5000,"錦秋コイン×10"],[7500,"ブーストホイッスル(銅)×1"],[10000,"スタジアムグルメ×2"],[15000,"BP回復薬ミニ×2"],[20000,"錦秋コイン×10"],[25000,"スタジアムグルメ×2"],[30000,"センススロット強化ソックス(小)×2"],[35000,"G55以上ガチャ券×1"],[40000,"GP回復薬ハーフ×1"],[45000,"スタジアムグルメ×2"],[50000,"ブーストホイッスル(銅)×1"],[55000,"GP回復薬ハーフ×1"],[60000,"錦秋コイン×10"],[65000,"センススロット強化ソックス(小)×1"],[70000,"スタジアムグルメ×2"],[75000,"万能特訓入門書×4"],[80000,"GP回復薬ハーフ×1"],[85000,"20000資金"],[90000,"スタジアムグルメ×2"],[95000,"センススロット強化ソックス(小)×2"],[100000,"ガチャチケット×1"],[110000,"フォーカスドプレイヤー第2弾Liteガチャ券×1"],[120000,"ヒーローチケット×1"],[125000,"万能特訓入門書×4"],[130000,"GP回復薬ハーフ×1"],[140000,"スタジアムグルメ×2"],[150000,"錦秋コイン×10"],[160000,"ブーストホイッスル(銅)×1"],[170000,"20000資金"],[180000,"スタジアムグルメ×2"],[190000,"センススロット強化ソックス(小)×1"],[200000,"スタジアムグルメ×2"],[210000,"万能特訓入門書×4"],[220000,"GP回復薬ハーフ×1"],[230000,"スタジアムグルメ×2"],[240000,"G55以上ガチャ券×1"],[250000,"センススロット強化ソックス(小)×1"],[260000,"スタジアムグルメ×2"],[270000,"GP回復薬ハーフ×1"],[280000,"G70以上ガチャ券×1"],[300000,"スタジアムグルメ×2"],[320000,"万能特訓DVD×2"],[330000,"[銀]9月度月間ベストゴールガチャ券×1"],[340000,"スタジアムグルメ×2"],[360000,"ブーストホイッスル(銅)×1"],[380000,"GP回復薬ハーフ×1"],[400000,"BP回復薬ミニ×2"],[420000,"センススロット強化ソックス(小)×1"],[440000,"スタジアムグルメ×2"],[460000,"フォーカスドプレイヤー第2弾Liteガチャ券×1"],[480000,"万能特訓DVD×2"],[500000,"スタジアムグルメ×2"],[520000,"錦秋コイン×10"],[540000,"GP回復薬ハーフ×1"],[560000,"センススロット強化ソックス(小)×1"],[580000,"万能特訓入門書×4"],[600000,"アンロックキー×1"],[620000,"センススロット強化ソックス(小)×1"],[640000,"G75以上ガチャ券×1"],[660000,"スタジアムグルメ×2"],[680000,"集まれ！サポーター！勲章(2026/11)×1"],[700000,"お気に入りクラブガチャ券×1"],[720000,"スタジアムグルメ×2"],[740000,"センススロット強化ソックス(中)×1"],[760000,"万能特訓入門書×4"],[780000,"ブーストホイッスル(銀)×1"],[800000,"G70以上ガチャ券×1"],[830000,"BP回復薬ミニ×2"],[860000,"GP回復薬ハーフ×1"],[900000,"フォーカスドプレイヤー第2弾Liteガチャ券×1"],[920000,"ヒーローチケット×1"],[940000,"万能特訓DVD×2"],[960000,"スタジアムグルメ×2"],[1000000,"錦秋コイン×20"],[1030000,"万能特訓DVD×2"],[1060000,"G80以上ガチャ券×1"],[1100000,"GP回復薬ハーフ×1"],[1130000,"スタジアムグルメ×2"],[1160000,"GK特訓VR×5"],[1200000,"センススロット強化ソックス(中)×1"],[1230000,"スタジアムグルメ×2"],[1260000,"G80以上ガチャ券×1"],[1300000,"DF特訓VR×5"],[1330000,"スタジアムグルメ×2"],[1360000,"10000資金"],[1400000,"MF特訓VR×5"],[1430000,"BP回復薬ミニ×2"],[1460000,"FW特訓VR×5"],[1500000,"グローリースパイク(銅)×1"],[1550000,"スタジアムグルメ×3"],[1600000,"センススロット強化ソックス(中)×1"],[1650000,"万能特訓VR×1"],[1700000,"GP回復薬ハーフ×1"],[1750000,"フォーカスドプレイヤー第2弾ガチャ券×1"],[1800000,"スタジアムグルメ×2"],[1850000,"万能特訓VR×1"],[1900000,"ガチャチケット×1"],[1950000,"スタジアムグルメ×2"],[2000000,"G85以上ガチャ券×1"],[2050000,"万能特訓VR×1"],[2100000,"GP回復薬ハーフ×1"],[2150000,"ブーストホイッスル(銀)×1"],[2200000,"アンロックキー×1"],[2250000,"BP回復薬ミニ×2"],[2300000,"万能特訓VR×1"],[2350000,"BP回復薬ミニ×2"],[2400000,"センススロット強化ソックス(中)×1"],[2450000,"スタジアムグルメ×2"],[2500000,"GP回復薬ハーフ×1"],[2550000,"万能特訓VR×1"],[2600000,"G70以上ガチャ券×1"],[2650000,"万能特訓VR×1"],[2700000,"閃きの証×1"],[2750000,"100000資金"],[2800000,"グローリースパイク(銀)×1"],[2850000,"万能特訓VR×1"],[2900000,"ブーストホイッスル(金)×1"],[2950000,"スタジアムグルメ×10"],[3000000,"GP回復薬×5"],[3300000,"スタジアムグルメ×10"],[3600000,"GP回復薬×5"],[3900000,"スタジアムグルメ×10"],[4200000,"[金]レギュラー2026/27ガチャ券×1"],[4500000,"お気に入りクラブG40以上グローリーガチャ券×1"],[4800000,"スタジアムグルメ×10"],[5200000,"お気に入りクラブG80以上ガチャ券×1"]];
+  const ranking=[[1,3,"AランクWセンス付き選べる[金]9月度月間ベストゴールガチャ券×1＋選べるフォーカスドプレイヤー第2弾ガチャ券×1＋G85以上ガチャ券×1＋限界突破ミサンガ(大)×3＋ブーストホイッスル(金)×3"],[4,10,"AランクWセンス付き選べる[金]9月度月間ベストゴールガチャ券×1＋選べるフォーカスドプレイヤー第2弾ガチャ券×1＋G85以上ガチャ券×1＋ブーストホイッスル(金)×2"],[11,50,"9月度月間MVP・ベストゴールコイン×16＋G89以上フォーカスドプレイヤー第2弾ガチャ券×1＋G85以上ガチャ券×1＋ブーストホイッスル(金)×1"],[51,100,"9月度月間MVP・ベストゴールコイン×8＋[G89以上確率50%]G85以上フォーカスドプレイヤー第2弾ガチャ券×1＋G85以上ガチャ券×1＋ブーストホイッスル(銀)×1"],[101,300,"9月度月間MVP・ベストゴールコイン×4＋[G89以上確率30%]G85以上フォーカスドプレイヤー第2弾ガチャ券×1＋G85以上ガチャ券×1"],[301,500,"9月度月間MVP・ベストゴールコイン×1＋G85以上フォーカスドプレイヤー第2弾ガチャ券×1＋G85以上ガチャ券×1"],[501,1000,"G85以上フォーカスドプレイヤー第2弾ガチャ券×1＋G80以上ガチャ券×1"],[1001,3000,"フォーカスドプレイヤー第2弾ガチャ券×1＋G80以上ガチャ券×1"],[3001,5000,"G75以上ガチャ券×1"],[5001,10000,"G70以上ガチャ券×1"],[10001,30000,"G25以上グローリーガチャ券×1"],[30001,999999,"1000資金"]];
+  const stage=[[1,"バモ(VM)×5"],[3,"バモ(VM)×5"],[5,"バモ(VM)×5"],[10,"バモ(VM)×5"],[11,"バモ(VM)×11"],[15,"バモ(VM)×5"],[20,"バモ(VM)×5"],[25,"バモ(VM)×5"],[30,"バモ(VM)×5"],[40,"バモ(VM)×10"],[50,"バモ(VM)×5"],[60,"バモ(VM)×25"]];
+  e.rewards=Array.isArray(e.rewards)?e.rewards:[];
+  e.rankRewards=Array.isArray(e.rankRewards)?e.rankRewards:[];
+  e.milestoneRewards=Array.isArray(e.milestoneRewards)?e.milestoneRewards:[];
+  /* 到達ステージを記録すればステージ報酬を自動判定。既存の任意設定を優先する。 */
+  if(!e.progressLabel){e.progressLabel="到達ステージ";e.progressMax=60;}
+  /* 今回のイベントの既存ランキングボードにも基準順位3,000位・10,000位を追加する。 */
+  (e.boards||[]).forEach(b=>{
+    if(b.kind==="border"){
+      const old=Array.isArray(b.borderRanks)?b.borderRanks:[];
+      b.borderRanks=[...new Set([...old,3000,10000].map(Number).filter(n=>n>0&&Number.isFinite(n)))].sort((x,y)=>x-y);
+    }
+  });
+  let added=0,skipped=0;
+  cumulative.forEach(([points,label])=>{
+    if(e.rewards.some(r=>Number(r.points)===points)){skipped++;return;}
+    e.rewards.push({id:uid(),points,label});added++;
+  });
+  ranking.forEach(([minRank,maxRank,label])=>{
+    if(e.rankRewards.some(r=>Number(r.minRank)<=maxRank&&Number(r.maxRank)>=minRank)){skipped++;return;}
+    e.rankRewards.push({id:uid(),minRank,maxRank,label});added++;
+  });
+  if(e.progressLabel==="到達ステージ"){
+    stage.forEach(([value,label])=>{
+      if(e.milestoneRewards.some(r=>Number(r.value)===value)){skipped++;return;}
+      e.milestoneRewards.push({id:uid(),value,label});added++;
+    });
+  }else{skipped+=stage.length;}
+  saveDB();closeModal("m-rw");renderEvent();
+  toast(added?`あつサポ報酬${added}件を追加しました`:`追加する報酬はありません（登録済み）`);
+  if(skipped && added)alert(`${added}件を追加しました。既存条件と重なる${skipped}件は上書きせず省略しました。`);
 }
 
 /* ---------- データ管理 ---------- */
