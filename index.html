@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261109.1";
+window.__BUILD__ = "20261112.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -821,7 +821,7 @@ select{appearance:none;-webkit-appearance:none;
       </div>
       <div class="grid2">
         <div><label>バモ残</label><input type="number" id="r-vamo" inputmode="numeric"></div>
-        <div><label>特効値（%）</label><input type="number" id="r-tokko" inputmode="decimal" placeholder="例：480"></div>
+        <div><label id="r-tokko-label">特効値（%）</label><input type="number" id="r-tokko" inputmode="decimal" placeholder="例：480"></div>
       </div>
     </div>
     <label>メモ</label>
@@ -831,6 +831,26 @@ select{appearance:none;-webkit-appearance:none;
     <div class="danger-zone hidden" id="rec-danger">
       <button class="btn danger-o" onclick="deleteRecord()">この記録を削除</button>
     </div>
+  </div>
+</div>
+
+<!-- ============ モーダル：スクショ記録の一括取り込み ============ -->
+<div class="modal-bg" id="m-batch">
+  <div class="modal">
+    <div class="grip"></div>
+    <h2>スクショの記録を一括取り込み</h2>
+    <div class="m-sub" id="batch-board-name"></div>
+    <div class="note" style="margin-bottom:10px">
+      スクショをChatGPTにまとめて送り、「ランイベ手帳用の一括取り込みJSONを作って」と頼んでください。<br>
+      返ってきたJSONをここに一度だけ貼り付けます。写真そのものを読み取る機能ではありません。
+    </div>
+    <label for="batch-input">複数件の記録データ（JSON）</label>
+    <textarea id="batch-input" rows="10" style="width:100%;font-family:ui-monospace,monospace;font-size:12px;line-height:1.6" oninput="batchChanged()" placeholder='{"records":[{"datetime":"2026-11-12 07:59","myPoints":1494093,"myRank":6659,"tokko":1229,"currentGp":5,"vamo":1403,"stageCleared":15}]}'></textarea>
+    <div class="note">撮影時刻が<strong>2分以内</strong>なら、主要な数値に矛盾がない限り同じ記録にまとめます。元の日時・記録・メモは保持し、重複分は上書きしません。あつサポの「コアサポーターパワー」は特効値として保存します（％ではありません）。コンボとグルメは取り込みません。</div>
+    <button class="btn ghost" onclick="previewBatchImport()">取り込む内容を確認</button>
+    <div id="batch-preview" class="note" style="margin:12px 0;line-height:1.8" aria-live="polite">ここに取り込み内容が表示されます。</div>
+    <button class="btn primary" id="batch-commit" onclick="commitBatchImport()" disabled>確認した記録を取り込む</button>
+    <button class="btn ghost" onclick="closeModal('m-batch')">キャンセル</button>
   </div>
 </div>
 
@@ -2463,7 +2483,7 @@ function renderDash(){
 
   const lastR=recsAll.length?recsAll[recsAll.length-1]:null;
   if(lastR){
-    html+=`<details class="sim-detail" style="margin-bottom:12px"><summary>最新の資源を見る</summary><div class="inside">GP薬 ${fmt(latestHealAmount(b,"gp"))}GP分 ／ BP薬 ${fmt(latestHealAmount(b,"bp"))}BP分 ／ バモ ${fmt(latestResource(b,"vamo"))}${lastR.tokko?` ／ 特効 ${esc(lastR.tokko)}%`:""}</div></details>`;
+    html+=`<details class="sim-detail" style="margin-bottom:12px"><summary>最新の資源を見る</summary><div class="inside">GP薬 ${fmt(latestHealAmount(b,"gp"))}GP分 ／ BP薬 ${fmt(latestHealAmount(b,"bp"))}BP分 ／ バモ ${fmt(latestResource(b,"vamo"))}${lastR.tokko?` ／ 特効 ${esc(lastR.tokko)}${e.type==="supporter"?"":"%"}`:""}</div></details>`;
   }
   if(e.tokko||e.memo) html+=`<details class="sim-detail" style="margin-bottom:12px"><summary>イベントメモを見る</summary><div class="inside">${e.tokko?`特効：${esc(e.tokko)}<br>`:""}${e.memo?esc(e.memo).replace(/\n/g,"<br>"):""}</div></details>`;
   html+=`<button class="btn ghost" onclick="openRecordModal()">くわしく記録（資源・メモ・他の順位）</button>`;
@@ -2487,8 +2507,12 @@ function renderRecs(){
   const e=ev(), b=board();
   const recs = sortedRecords(b).reverse();
   const tRank = targetRankOf(e,b);
+  const batchEntry = `<div class="card" style="margin-bottom:12px;padding:13px">
+    <button class="btn ghost" onclick="openBatchImport()">スクショの記録をまとめて取り込む</button>
+    <div class="note" style="margin-top:5px">あとから複数回分を一度で登録。2分以内のスクショは同じ記録として統合できます。</div>
+  </div>`;
   if(!recs.length){
-    $("tab-recs").innerHTML = `<div class="empty">まだ記録がありません。<br>＋から最初の記録を追加しましょう。<br><span style="font-size:11px">序盤は1日2〜3回、終盤は数時間おきの記録が予測精度を上げます。</span></div>`;
+    $("tab-recs").innerHTML = batchEntry + `<div class="empty">まだ記録がありません。<br>＋から最初の記録を追加しましょう。<br><span style="font-size:11px">序盤は1日2〜3回、終盤は数時間おきの記録が予測精度を上げます。</span></div>`;
     return;
   }
   /* 時系列順（古い→新しい）で前回との差を持たせる */
@@ -2527,7 +2551,7 @@ function renderRecs(){
         ${bdv!=null?`<span class="bd"><b>${tRank}位</b> ${fmt(bdv)}</span>`:""}
         ${my!=null&&bdv!=null?`<span style="color:${my>=bdv?"var(--safe)":"var(--danger)"}">${my>=bdv?"+":"−"}${fmt(Math.abs(my-bdv))}</span>`:""}
         ${r.myRank?`<span>${fmt(r.myRank)}位</span>`:""}
-        ${r.tokko?`<span>特効 ${esc(r.tokko)}%</span>`:""}
+        ${r.tokko?`<span>特効 ${esc(r.tokko)}${e.type==="supporter"?"":"%"}</span>`:""}
         ${resParts.length?`<span>${resParts.join(" / ")}</span>`:""}
       </div>
       ${r.memo?`<div class="memo">${esc(r.memo)}</div>`:""}
@@ -2544,9 +2568,9 @@ function renderRecs(){
       }
       out += rowHtml(r);
     });
-    $("tab-recs").innerHTML = `<div class="reclist">${out}</div>`;
+    $("tab-recs").innerHTML = batchEntry + `<div class="reclist">${out}</div>`;
   }else{
-    $("tab-recs").innerHTML = `<div class="reclist">${recs.map(rowHtml).join("")}</div>`;
+    $("tab-recs").innerHTML = batchEntry + `<div class="reclist">${recs.map(rowHtml).join("")}</div>`;
   }
 }
 
@@ -3770,7 +3794,8 @@ function openRecordModal(recId){
     }
     return null;
   })();
-  $("r-tokko").placeholder = prevTokko!=null ? `前回 ${prevTokko}` : "例：480";
+  $("r-tokko-label").textContent=e.type==="supporter"?"コアサポーターパワー（特効・%なし）":"特効値（%）";
+  $("r-tokko").placeholder = prevTokko!=null ? `前回 ${prevTokko}` : (e.type==="supporter"?"例：1229":"例：480");
   /* ボーダー入力欄：目標順位を最上段に、他は折りたたみ */
   const prev = latestBorders(b, r?r.ts:null);
   const ranks = (b.borderRanks||[]);
@@ -3928,6 +3953,188 @@ function deleteRecord(){
   b.records = b.records.filter(x=>x.id!==state.editRecId);
   saveDB(); closeModal("m-rec"); state.editRecId=null;
   renderEvent();
+}
+
+/* =====================================================
+   スクショ由来・複数記録の一括取り込み
+   - 撮影2分以内かつ主要数値に矛盾がなければ同じ記録
+   - 撮影中に試合でPtが増えた場合などは別記録
+   - 既存レコードは未入力欄のみ補完。上書きしない
+   - 入力プレビュー後にのみ保存。未知項目は保存しない
+===================================================== */
+const BATCH_NEAR_MS = 2*60*1000;
+const BATCH_NUMBER_FIELDS = ["myPoints","myRank","progressValue","currentGp","currentBp","vamo","gpHeal","gpHealHalf","bpHeal","bpHealMini","townLevel","townBasePt"];
+const BATCH_MAIN_FIELDS = ["myPoints","myRank","progressValue","tokko"];
+const BATCH_ALIASES = {
+  myPoints:["myPoints","points","pt"], myRank:["myRank","rank"],
+  progressValue:["progressValue","stageCleared","clearedStage"],
+  currentGp:["currentGp","gp"], currentBp:["currentBp","bp"],
+  vamo:["vamo"], tokko:["tokko","coreSupporterPower","effect"],
+  gpHeal:["gpHeal"], gpHealHalf:["gpHealHalf"], bpHeal:["bpHeal"],bpHealMini:["bpHealMini"],
+  townLevel:["townLevel"],townBasePt:["townBasePt"]
+};
+function batchChanged(){ state.batchPlan=null; $("batch-commit").disabled=true; $("batch-preview").textContent="内容が変更されました。もう一度「取り込む内容を確認」を押してください。"; }
+function openBatchImport(){
+  const e=ev(),b=board(); if(!e||!b)return;
+  if(b.kind==="daily"){
+    alert("日替わり枠の記録は通常の記録画面を利用してください。現在、一括取り込みはランキング型・目標型に対応しています。"); return;
+  }
+  state.batchPlan=null;
+  $("batch-board-name").textContent=`対象：${e.name} ／ ${b.name}（このボードに登録）`;
+  $("batch-input").value="";
+  $("batch-preview").textContent="ここに取り込み内容が表示されます。";
+  $("batch-commit").disabled=true;
+  openModal("m-batch");
+}
+function batchTimestamp(v){
+  if(typeof v==="number" && Number.isFinite(v)) return v>1e12?v:null;
+  if(typeof v!=="string")return null;
+  const s=v.trim();
+  /* スクショの撮影日付は必須。時刻だけで当日を決めない。 */
+  const m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(m){
+    const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]),h=Number(m[4]),mi=Number(m[5]),sec=Number(m[6]||0);
+    if(y<2000||y>2100||mo<1||mo>12||d<1||d>31||h>23||mi>59||sec>59)return null;
+    const x=new Date(y,mo-1,d,h,mi,sec);
+    if(x.getFullYear()!==y||x.getMonth()!==mo-1||x.getDate()!==d||x.getHours()!==h||x.getMinutes()!==mi)return null;
+    return x.getTime();
+  }
+  /* Z やオフセットが指定される場合は ISO 表記のタイムゾーンを尊重 */
+  if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(s)){
+    const x=Date.parse(s); return Number.isFinite(x)?x:null;
+  }
+  return null;
+}
+function batchNum(x,label){
+  if(x==null||x==="")return null;
+  const raw=typeof x==="string"?x.replace(/,/g,"").trim():x;
+  if(typeof raw==="boolean"||!/^\d+(?:\.\d+)?$/.test(String(raw)))throw Error(label+" は0以上の数値にしてください。");
+  const n=Number(raw);
+  if(!Number.isFinite(n)||n>1e14)throw Error(label+" が大きすぎます。");
+  return n;
+}
+function batchNormalize(row,idx){
+  if(!row || typeof row!=="object" || Array.isArray(row))throw Error(`${idx+1}件目：JSONの各記録はオブジェクトにしてください。`);
+  const ts=batchTimestamp(row.datetime??row.dateTime??row.ts??row.date);
+  if(ts==null)throw Error(`${idx+1}件目：撮影日時は「2026-11-12 07:59」の形式で指定してください。`);
+  const out={ts,borders:{}};
+  for(const [key,aliases] of Object.entries(BATCH_ALIASES)){
+    const found=aliases.find(k=>Object.prototype.hasOwnProperty.call(row,k));
+    if(found==null)continue;
+    if(key==="tokko"){
+      const v=row[found];
+      if(v==null||v==="")continue;
+      const t=batchNum(typeof v==="string"?v.replace(/%$/,''):v,"特効値");
+      if(t!=null)out.tokko=String(t);
+    }else{
+      const n=batchNum(row[found],key);
+      if(n!=null)out[key]=n;
+    }
+  }
+  if(row.borders!=null){
+    if(!row.borders || typeof row.borders!=="object" || Array.isArray(row.borders))throw Error(`${idx+1}件目：borders は順位とPtの対応表で入力してください。`);
+    for(const [rk,val] of Object.entries(row.borders)){
+      if(!/^[1-9]\d{0,6}$/.test(rk))throw Error(`${idx+1}件目：ボーダー順位「${rk}」が不正です。`);
+      const n=batchNum(val,`${rk}位のボーダー`); if(n!=null)out.borders[rk]=n;
+    }
+  }
+  if(typeof row.memo==="string"&&row.memo.trim())out.memo=row.memo.trim().slice(0,500);
+  const has=Object.keys(out).some(k=>k!=="ts" && k!=="borders" && k!=="memo") || Object.keys(out.borders).length;
+  if(!has)throw Error(`${idx+1}件目：記録する数値がありません。`);
+  return out;
+}
+function batchConflict(a,b){
+  for(const k of BATCH_MAIN_FIELDS){
+    const v=a[k],w=b[k];
+    if(v!=null&&v!==""&&w!=null&&w!=="" && Number(v)!==Number(w))return true;
+  }
+  for(const rk of Object.keys(b.borders||{})){
+    if(a.borders&&a.borders[rk]!=null&&Number(a.borders[rk])!==Number(b.borders[rk]))return true;
+  }
+  return false;
+}
+function batchMergeInto(a,b){
+  let added=0, auxConflicts=0;
+  for(const k of [...BATCH_NUMBER_FIELDS,"tokko"]){
+    if(b[k]==null||b[k]==="")continue;
+    if(a[k]==null||a[k]===""){
+      a[k]=b[k]; added++;
+    }else if(Number(a[k])!==Number(b[k])){ auxConflicts++; }
+  }
+  if(b.memo && !a.memo){a.memo=b.memo;added++;}
+  a.borders=a.borders||{};
+  for(const [k,v] of Object.entries(b.borders||{})){
+    if(a.borders[k]==null){a.borders[k]=v;added++;}
+  }
+  return {added,auxConflicts};
+}
+function batchPlanRecords(rows,oldRecords){
+  const items=rows.map((v,i)=>batchNormalize(v,i)).sort((a,b)=>a.ts-b.ts);
+  /* shallow clone + borders clone: no existing entry is altered until commit */
+  const all=(oldRecords||[]).map(r=>({...r,borders:{...(r.borders||{})},__existing:true}));
+  let created=0,filled=0,unchanged=0,collisions=0,mergeWithin=0;
+  const newSummary=[];
+  for(const item of items){
+    let best=null,bestDist=Infinity;
+    for(const r of all){
+      const dist=Math.abs(item.ts-r.ts);
+      if(dist<=BATCH_NEAR_MS && !batchConflict(r,item) && (dist<bestDist|| (dist===bestDist && best && r.__existing))){
+        best=r;bestDist=dist;
+      }
+    }
+    if(best){
+      const a=batchMergeInto(best,item);
+      collisions+=a.auxConflicts;
+      if(best.__existing){if(a.added)filled++;else unchanged++;}
+      else mergeWithin++;
+    }else{
+      const r={id:uid(),...item,__existing:false};
+      all.push(r);created++;
+      newSummary.push(r);
+    }
+  }
+  return {all,created,filled,unchanged,mergeWithin,collisions,total:items.length,newSummary};
+}
+function previewBatchImport(){
+  state.batchPlan=null; $("batch-commit").disabled=true;
+  const e=ev(),b=board(); if(!e||!b)return;
+  try{
+    const raw=$("batch-input").value.trim();
+    if(!raw)throw Error("記録JSONを貼り付けてください。");
+    const payload=JSON.parse(raw);
+    const rows=Array.isArray(payload)?payload:payload&&payload.records;
+    if(!Array.isArray(rows)||!rows.length)throw Error('JSONは [{...},{...}] または {"records":[...]} で入力してください。');
+    if(rows.length>300)throw Error("一度に取り込めるのは300行までです。分割してください。");
+    const plan=batchPlanRecords(rows,b.records||[]);
+    state.batchPlan={...plan,evId:e.id,boardId:b.id,text:raw};
+    const list=plan.all.filter(r=>!r.__existing).sort((a,b)=>a.ts-b.ts).slice(0,12);
+    const repr=list.map(r=>`${fmtDT(r.ts)}：${r.myPoints!=null?fmt(r.myPoints)+"Pt ":""}${r.myRank!=null?fmt(r.myRank)+"位 ":""}${r.tokko!=null?"特効"+r.tokko+" ":""}${r.progressValue!=null?"ステージ"+r.progressValue+"クリア ":""}`).join("<br>");
+    const warn=plan.collisions?`<br>※GP/BPなど補助項目に食い違いが${plan.collisions}件あります。<strong>先に記録済みの数値を優先して保存</strong>します。`:"";
+    $("batch-preview").innerHTML=`<strong>読み込み ${plan.total}行 → 新規 ${plan.created}件・既存記録の補完 ${plan.filled}件・今回のJSON内で統合 ${plan.mergeWithin}件・重複等で変更なし ${plan.unchanged}件</strong>${warn}<br>
+       主要な数値が食い違う近接スクショは、別々の記録として保持します。<br>
+       ${repr?`<div style="margin-top:8px">新規登録予定：<br>${repr}${plan.created>12?"<br>…ほか":""}</div>`:""}
+       <div style="margin-top:6px">このプレビューではまだ保存していません。</div>`;
+    $("batch-commit").disabled=!(plan.created||plan.filled);
+  }catch(err){
+    $("batch-preview").textContent="確認できませんでした："+(err&&err.message?err.message:String(err));
+  }
+}
+function commitBatchImport(){
+  const p=state.batchPlan,e=ev(),b=board();
+  if(!p||!e||!b||p.evId!==e.id||p.boardId!==b.id||p.text!==$("batch-input").value.trim()){
+    alert("内容または対象ボードが変更されたので、もう一度確認してください。");return;
+  }
+  if(!p.created&&!p.filled)return;
+  if(!confirm(`新規${p.created}件、補完${p.filled}件の記録を保存しますか？\n既存値は上書きしません。`))return;
+  b.records=p.all.map(({__existing,...r})=>r);
+  if(e.type==="supporter" && !e.progressLabel && b.records.some(r=>r.progressValue!=null))e.progressLabel="クリア済ステージ";
+  if(b.kind==="border"){
+    const known=new Set(b.borderRanks||[]);
+    b.records.forEach(r=>Object.keys(r.borders||{}).forEach(x=>known.add(Number(x))));
+    b.borderRanks=[...known].filter(x=>x>0&&Number.isFinite(x)).sort((a,b)=>a-b);
+  }
+  saveDB();state.batchPlan=null;closeModal("m-batch");renderEvent();
+  toast(`記録を${p.created}件追加・${p.filled}件補完しました`);
 }
 
 /* ---------- 報酬 ---------- */
