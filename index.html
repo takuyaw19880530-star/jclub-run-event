@@ -12,7 +12,7 @@
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261118.1";
+window.__BUILD__ = "20261118.2";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -665,6 +665,7 @@ select{appearance:none;-webkit-appearance:none;
     <h1 style="display:flex;align-items:baseline;gap:8px">Jクラ総合手帳
       <span style="font-size:10px;color:var(--faint);letter-spacing:.12em;font-weight:400">Jクラ EVENT NOTE</span>
     </h1>
+    <button class="h-act" onclick="showCards()">カード評価</button>
     <button class="h-act" onclick="openActivityEditor()">＋周回</button>
     <button class="h-act" onclick="showLearn()">学習</button>
     <button class="h-act" onclick="openDataModal()">データ</button>
@@ -673,6 +674,7 @@ select{appearance:none;-webkit-appearance:none;
     <div id="global-overview"></div>
     <div id="activity-overview"></div>
     <div id="card-goals-overview"></div>
+    <div id="card-eval-home"></div>
     <div class="seg" id="home-seg">
       <button data-f="all" class="on" onclick="setHomeFilter('all')">すべて</button>
       <button data-f="active" onclick="setHomeFilter('active')">開催中</button>
@@ -760,6 +762,21 @@ select{appearance:none;-webkit-appearance:none;
   </header>
   <div class="wrap">
     <div id="activity-detail"></div>
+  </div>
+</div>
+
+<!-- ============ カード評価（シーズンボーナス対応） ============ -->
+<div id="view-cards" class="hidden">
+  <header>
+    <button class="back" onclick="showHome()" aria-label="戻る">‹</button>
+    <h1>カード評価</h1>
+    <button class="h-act" onclick="openCardImport()">JSON取込</button>
+  </header>
+  <div class="wrap">
+    <div class="jc-note">選手詳細・スキル・センスのスクショをChatGPTに送って、評価JSONを作成。手帳では、<b>シーズンボーナス込みの能力</b>と<b>スキル・編成相性</b>を分けて比較します。確認できない値は空欄のままでOK。</div>
+    <div class="jc-actions"><button class="jc-btn primary" onclick="openCardEditor()">＋カード登録</button><button class="jc-btn" onclick="openCardImport()">複数枚を一括登録</button><button class="jc-btn" onclick="addCardExamples()">井上・内藤の評価例</button></div>
+    <div id="card-compare"></div>
+    <div id="card-eval-list"></div>
   </div>
 </div>
 
@@ -1092,6 +1109,45 @@ select{appearance:none;-webkit-appearance:none;
   </div>
 </div>
 
+<!-- ============ モーダル：カード詳細・評価 ============ -->
+<div class="modal-bg" id="m-card-eval"><div class="modal">
+ <div class="grip"></div><h2 id="ce-title">カードを登録</h2>
+ <div class="m-sub">不明な情報は空欄のままで構いません。スクショで確認できた値を入力してください。</div>
+ <label>選手名（必須）</label><input id="ce-name" placeholder="井上樹">
+ <div class="grid2"><div><label>カードシリーズ</label><input id="ce-series" placeholder="EXPECTED PLAYERS"></div><div><label>シーズン</label><input id="ce-season" placeholder="2026/27"></div></div>
+ <div class="grid2"><div><label>グレード</label><input id="ce-grade" type="number" min="0" inputmode="numeric"></div><div><label>ポジション</label><input id="ce-position" placeholder="CB / FW / GK"></div></div>
+ <label>クラブ</label><input id="ce-club" placeholder="ヴァンフォーレ甲府">
+ <div class="grid2"><div><label>現在の所有状況</label><select id="ce-owned"><option value="unknown">未確認</option><option value="owned">所持</option><option value="wishlist">未所持・検討中</option></select></div><div><label>育成状態（キラ・突破・ブースト等）</label><input id="ce-growth" placeholder="キラあり・限界突破2 等"></div></div>
+ <div class="jc-note"><b>シーズンボーナス（重要）</b><br>ゲーム内の「＋表示」をそのまま入力。「ボーナス除外総合値」と「＋表示」の両方が分かる場合にのみ、合計を計算します。ボーナスを含むか分からない画面の総合値を二重加算しません。</div>
+ <div class="grid2"><div><label>ボーナス除外総合値（確認できた場合）</label><input id="ce-base" type="number" min="0" inputmode="numeric" placeholder="空欄可"></div><div><label>シーズンボーナス（＋表示の値）</label><input id="ce-bonus" type="number" min="0" inputmode="numeric" placeholder="例：800"></div></div>
+ <label>画面に表示された総合値（加算済みか不明の場合）</label><input id="ce-shown" type="number" min="0" inputmode="numeric" placeholder="参考値・比較計算に使わない">
+ <label>能力値6種（画面表示のまま。分かるものだけ）</label>
+ <div class="grid2"><div><label>オフェンス</label><input id="ce-off" type="number" min="0" inputmode="numeric"></div><div><label>ディフェンス</label><input id="ce-def" type="number" min="0" inputmode="numeric"></div><div><label>テクニック</label><input id="ce-tec" type="number" min="0" inputmode="numeric"></div><div><label>パワー</label><input id="ce-pow" type="number" min="0" inputmode="numeric"></div><div><label>スピード</label><input id="ce-spd" type="number" min="0" inputmode="numeric"></div><div><label>スタミナ</label><input id="ce-sta" type="number" min="0" inputmode="numeric"></div></div>
+ <label>スペシャル・セレクトスキル（1行に1つ）</label><textarea id="ce-skills" rows="5" placeholder="ダイナミックインターセプトA
+ピンポイントタックルA
+空中戦の競り合いA（選択）"></textarea>
+ <label>チームスキル</label><input id="ce-team" placeholder="DF＆GK全パラメータ強化A+10">
+ <label>センス・クラブリンク・クラブイズムなど</label><textarea id="ce-other" rows="3" placeholder="EP50%アップ、クラブリンク+2、クラブイズム等"></textarea>
+ <label>スキルの実戦評価と根拠</label><textarea id="ce-skillnote" rows="3" placeholder="タックル＋インターセプト＋空中戦をカバー。ただし発動率は未測定"></textarea>
+ <label>この編成での評価（役割・比較対象）</label><textarea id="ce-evalnote" rows="3" placeholder="甲府のCBとして守備強化候補。現在スタメンとの差は未確認"></textarea>
+ <label>評価の確かさ</label><select id="ce-certainty"><option value="未評価">未評価</option><option value="暫定">暫定（スキル構成などから推定）</option><option value="確認済み">確認済み（実測・詳細の根拠あり）</option></select>
+ <label>評価の出典・確認メモ</label><input id="ce-source" placeholder="ゲーム内スクショ 11/18、攻略記事など">
+ <button class="btn primary" onclick="saveCardEval()">カードを保存</button>
+ <button class="btn ghost" onclick="closeModal('m-card-eval')">キャンセル</button>
+ <div class="danger-zone hidden" id="ce-danger"><button class="btn danger-o" onclick="deleteCardEval()">このカードを削除</button></div>
+</div></div>
+
+<!-- ============ モーダル：カード評価JSONの一括取り込み ============ -->
+<div class="modal-bg" id="m-card-import"><div class="modal">
+ <div class="grip"></div><h2>カード評価を一括登録</h2>
+ <div class="jc-note">ChatGPTがスクショから作ったJSONを貼り付けます。<b>既存カードは削除・上書きせず</b>、一致したカードの未入力項目だけ補完します。</div>
+ <label>カード評価JSON</label><textarea id="ce-import-text" rows="11" style="font-family:ui-monospace,monospace" oninput="cardImportChanged()" placeholder='{"cards":[{"name":"井上樹","season":"2026/27","series":"EXPECTED PLAYERS","grade":85,"skills":["ダイナミックインターセプトA"]}]}'></textarea>
+ <button class="btn ghost" onclick="previewCardImport()">取り込み内容を確認</button>
+ <div class="jc-note" id="ce-import-preview">未確認</div>
+ <button class="btn primary" id="ce-import-commit" onclick="commitCardImport()" disabled>確認したカードを取り込む</button>
+ <button class="btn ghost" onclick="closeModal('m-card-import')">閉じる</button>
+</div></div>
+
 <!-- ============ モーダル：データ管理 ============ -->
 <div class="modal-bg" id="m-data">
   <div class="modal">
@@ -1105,7 +1161,7 @@ select{appearance:none;-webkit-appearance:none;
         <button data-th="paper" onclick="setTheme('paper')">ライト</button>
       </div>
     </div>
-    <div class="m-sub">ランキング・周回イベント・カード目標は、この端末のブラウザ内（localStorage）に保存されます。更新前・定期的に必ずバックアップしてください。GitHubへのコード更新だけではスマホの保存内容を変更しません。</div>
+    <div class="m-sub">ランキング・周回イベント・カード目標・カード評価は、この端末のブラウザ内（localStorage）に保存されます。更新前・定期的に必ずバックアップしてください。GitHubへのコード更新だけではスマホの保存内容を変更しません。</div>
     <button class="btn ghost" onclick="exportJSON()">JSONバックアップを書き出す</button>
     <label>バックアップを読み込む（貼り付け）</label>
     <textarea id="import-text" placeholder="書き出したJSONをここに貼り付け"></textarea>
@@ -1152,6 +1208,7 @@ let db = loadDB();
 db.settings = db.settings || {};
 db.activities = Array.isArray(db.activities) ? db.activities : [];
 db.cardGoals = Array.isArray(db.cardGoals) ? db.cardGoals : [];
+db.cardEvaluations = Array.isArray(db.cardEvaluations) ? db.cardEvaluations : [];
 function loadDB(){
   try{
     const raw = localStorage.getItem(LS_KEY);
@@ -1935,6 +1992,7 @@ function renderHome(){
   renderGlobalOverview();
   renderActivityOverview();
   renderCardGoals();
+  renderCardEvalHome();
   renderPerformanceOverview();
   const list = $("ev-list");
   const guide = db.settings.guideDismissed ? "" :
@@ -2017,6 +2075,7 @@ function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"
    イベント詳細
 ===================================================== */
 function showHome(){
+  $("view-cards").classList.add("hidden");
   state.evId=null;
   $("view-event").classList.add("hidden");
   $("view-learn").classList.add("hidden");
@@ -2027,6 +2086,7 @@ function showHome(){
   window.scrollTo(0,0);
 }
 function showEvent(id){
+  $("view-cards").classList.add("hidden");
   state.evId=id;
   const e=ev(); if(!e) return;
   db.settings = db.settings || {};
@@ -4470,6 +4530,7 @@ function importJSON(){
    学習データビューア
 ===================================================== */
 function showLearn(){
+  $("view-cards").classList.add("hidden");
   state.learnType = "all";
   $("view-home").classList.add("hidden");
   $("view-event").classList.add("hidden");
@@ -4666,6 +4727,7 @@ function deleteActivity(){
  db.activities=db.activities.filter(x=>x.id!==a.id);saveDB();closeModal("m-activity");showHome();
 }
 function showActivity(id){
+ $("view-cards").classList.add("hidden");
  state.activityId=id;const a=act();if(!a)return showHome();
  state.evId=null;
  $("view-home").classList.add("hidden");$("view-event").classList.add("hidden");$("view-learn").classList.add("hidden");
@@ -5010,6 +5072,144 @@ function editCardGoal(id){
 function setCardGoalStatus(id){
  const card=(db.cardGoals||[]).find(x=>x.id===id);if(!card)return;
  card.status=card.status==="獲得済み"?"狙い中":"獲得済み";saveDB();renderCardGoals();
+}
+
+/* =====================================================
+   カード評価：シーズンボーナス／スキル／編成相性
+   - 数値はスクショに基づく記録のみ。年度からボーナスを推測しない。
+   - ボーナス除外総合値が確認できるときのみ、実効値を計算。
+   - 不明な発動率・勝率を自動推定しない。
+   - 現在の保存キー、イベント・周回記録は変更しない。
+===================================================== */
+const CARD_NUMERIC_KEYS=["grade","baseTotal","seasonBonus","shownTotal","off","def","tec","pow","spd","sta"];
+const CARD_TEXT_KEYS=["name","series","season","position","club","owned","growth","teamSkill","otherBonuses","skillNote","evaluationNote","certainty","source"];
+let editCardEvalId=null,cardImportPlan=null;
+function cardNum(v){if(v==null||v==="")return null; const n=Number(String(v).replace(/,/g,""));return Number.isFinite(n)&&n>=0&&n<=1e8?n:null;}
+function cardStore(){db.cardEvaluations=Array.isArray(db.cardEvaluations)?db.cardEvaluations:[];return db.cardEvaluations;}
+function cardEffectiveTotal(c){const b=cardNum(c.baseTotal),x=cardNum(c.seasonBonus);return b!=null&&x!=null?b+x:null;}
+function cardIdentity(c){return [c.name,c.season,c.series,c.grade].map(x=>String(x??"").trim().toLowerCase()).join("|");}
+function cardDisplay(c){return `${c.name||"選手不明"}｜${c.series||"シリーズ未入力"} ${c.season||""} ${cardNum(c.grade)!=null?"G"+c.grade:""}`;}
+function cardInputValue(id,v){const el=$(id);if(el)el.value=v==null?"":String(v);}
+function cardReadValue(id){const el=$(id);return el?el.value.trim():"";}
+function renderCardEvalHome(){
+ const dest=$("card-eval-home");if(!dest)return;
+ const cards=cardStore();
+ dest.innerHTML=`<div class="jc-heading"><span>選手カード評価</span><button class="jc-link" onclick="showCards()">一覧・比較 →</button></div>
+ <div class="jc-caption">シーズンボーナス・スキル・編成相性を分けて検討。登録${cards.length}枚</div>
+ <div class="jc-actions"><button class="jc-btn primary" onclick="showCards()">カード評価を開く</button><button class="jc-btn" onclick="openCardImport()">評価JSONを取り込む</button></div>`;
+}
+function showCards(){
+ $("view-home").classList.add("hidden");$("view-event").classList.add("hidden");$("view-learn").classList.add("hidden");$("view-activity").classList.add("hidden");
+ $("view-cards").classList.remove("hidden");renderCardEvaluations();window.scrollTo(0,0);
+}
+function renderCardEvaluations(){
+ const cards=cardStore().slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+ const list=$("card-eval-list");if(!list)return;
+ list.innerHTML=`<div class="jc-heading">登録カード（${cards.length}枚）</div>`+(cards.length?cards.map(c=>{
+  const net=cardEffectiveTotal(c),bonus=cardNum(c.seasonBonus),base=cardNum(c.baseTotal);
+  const sk=Array.isArray(c.skills)?c.skills:[];
+  return `<div class="jc-card"><strong>${esc(cardDisplay(c))}</strong>
+   <div class="jc-caption">${esc(c.position||"ポジション未入力")} ／ ${esc(c.club||"クラブ未入力")} ／ ${c.owned==="owned"?"所持":c.owned==="wishlist"?"未所持・検討中":"所持状況未確認"} ／ 評価：${esc(c.certainty||"未評価")}</div>
+   <div class="jc-stats" style="margin:10px 0"><div class="jc-stat"><div class="k">ボーナス除外</div><div class="v">${base==null?"—":fmt(base)}</div></div><div class="jc-stat"><div class="k">シーズン＋</div><div class="v">${bonus==null?"—":"+"+fmt(bonus)}</div></div><div class="jc-stat"><div class="k">加算後の合計</div><div class="v">${net==null?"未確定":fmt(net)}</div></div></div>
+   ${cardNum(c.shownTotal)!=null?`<div class="jc-caption">画面表示総合値：${fmt(c.shownTotal)}（ボーナスの含有未確認のため、合計へは加えない）</div>`:""}
+   ${sk.length?`<div class="jc-caption">スキル：${sk.map(x=>esc(x)).join(" ／ ")}</div>`:""}
+   ${c.skillNote?`<div class="jc-note"><b>スキル評価：</b>${esc(c.skillNote)}</div>`:""}
+   ${c.evaluationNote?`<div class="jc-note"><b>編成評価：</b>${esc(c.evaluationNote)}</div>`:""}
+   ${c.growth?`<div class="jc-caption">育成：${esc(c.growth)}</div>`:""}
+   <div class="jc-actions"><button class="jc-btn" onclick="openCardEditor('${c.id}')">詳細・編集</button></div></div>`;
+ }).join(""):`<div class="jc-note">まだカードがありません。「＋カード登録」か「評価JSON」で追加。エクスペ井上・内藤の評価例もワンタップで登録できます。</div>`);
+ const comp=$("card-compare"),sel=cards.map(c=>`<option value="${esc(c.id)}">${esc(cardDisplay(c))}</option>`).join("");
+ const oldA=cardReadValue("ce-compare-a"),oldB=cardReadValue("ce-compare-b");
+ comp.innerHTML=`<div class="jc-heading">2枚のカードを比較</div>
+ <div class="grid2"><div><label>カード A</label><select id="ce-compare-a" onchange="renderCardComparison()"><option value="">選択してください</option>${sel}</select></div>
+ <div><label>カード B</label><select id="ce-compare-b" onchange="renderCardComparison()"><option value="">選択してください</option>${sel}</select></div></div>
+ <div id="ce-compare-result" class="jc-note">比較したい2枚を選択してね。シーズンボーナスを確認できていないカードの加算後総合値は算出しません。</div>`;
+ if(cards.some(x=>x.id===oldA))$("ce-compare-a").value=oldA;
+ if(cards.some(x=>x.id===oldB))$("ce-compare-b").value=oldB;
+ renderCardComparison();
+}
+function renderCardComparison(){
+ const a=cardStore().find(x=>x.id===cardReadValue("ce-compare-a"));const b=cardStore().find(x=>x.id===cardReadValue("ce-compare-b"));
+ const el=$("ce-compare-result");if(!el)return;
+ if(!a||!b){el.textContent="2枚を選ぶと、シーズンボーナスと編成の違いを比較できます。";return;}
+ if(a.id===b.id){el.textContent="違うカードを選択してください。";return;}
+ const ea=cardEffectiveTotal(a),eb=cardEffectiveTotal(b);
+ const diff=ea!=null&&eb!=null?ea-eb:null;
+ const names=["オフェンス","ディフェンス","テクニック","パワー","スピード","スタミナ"],keys=["off","def","tec","pow","spd","sta"];
+ const row=(title,x,y)=>`<div class="jc-row"><span>${esc(title)}</span><span>${x==null?"—":esc(String(x))} ／ ${y==null?"—":esc(String(y))}</span></div>`;
+ el.innerHTML=`<strong>カードA ／ カードB</strong>
+ ${row("シーズン",a.season||"未確認",b.season||"未確認")}
+ ${row("グレード",cardNum(a.grade),cardNum(b.grade))}
+ ${row("ボーナス除外総合値",cardNum(a.baseTotal)==null?null:fmt(a.baseTotal),cardNum(b.baseTotal)==null?null:fmt(b.baseTotal))}
+ ${row("シーズンボーナス",cardNum(a.seasonBonus)==null?null:"+"+fmt(a.seasonBonus),cardNum(b.seasonBonus)==null?null:"+"+fmt(b.seasonBonus))}
+ ${row("加算後総合値",ea==null?null:fmt(ea),eb==null?null:fmt(eb))}
+ ${diff!=null?`<div class="jc-note">シーズンボーナス込みの総合値差：AがBより ${diff>0?"+":""}${fmt(diff)}。これは<b>能力値の比較</b>で、試合の勝率差を意味しません。</div>`:`<div class="jc-note">合計比較は未確定。各カードの<b>ボーナス除外総合値と実際の「＋」表示</b>が分かると計算できます。</div>`}
+ ${keys.filter(k=>cardNum(a[k])!=null||cardNum(b[k])!=null).map((k,i)=>row(names[keys.indexOf(k)],cardNum(a[k]),cardNum(b[k]))).join("")}
+ <div class="jc-note">【A】${esc(a.skillNote||"スキル評価未記録")}<br>【B】${esc(b.skillNote||"スキル評価未記録")}</div>
+ <div class="jc-note"><b>編成の比較に必要：</b>育成状況、クラブリンク、センス、連携、フォーメーション、対戦用途。自動で勝敗や強さの順位を断定しません。</div>`;
+}
+function openCardEditor(id){
+ const c=id?cardStore().find(x=>x.id===id):null;editCardEvalId=c?c.id:null;
+ $("ce-title").textContent=c?"カードを編集":"カードを登録";
+ for(const [k,f] of [["name","name"],["series","series"],["season","season"],["grade","grade"],["position","position"],["club","club"],["owned","owned"],["growth","growth"],["base","baseTotal"],["bonus","seasonBonus"],["shown","shownTotal"],["team","teamSkill"],["other","otherBonuses"],["skillnote","skillNote"],["evalnote","evaluationNote"],["certainty","certainty"],["source","source"]])cardInputValue("ce-"+k,c?.[f]??(f==="owned"?"unknown":f==="certainty"?"未評価":""));
+ for(const k of ["off","def","tec","pow","spd","sta"])cardInputValue("ce-"+k,c?.[k]??"");
+ cardInputValue("ce-skills",(c?.skills||[]).join("\n"));
+ $("ce-danger").classList.toggle("hidden",!c);openModal("m-card-eval");
+}
+function saveCardEval(){
+ const name=cardReadValue("ce-name");if(!name){alert("選手名を入力してください。");return;}
+ const c=editCardEvalId?cardStore().find(x=>x.id===editCardEvalId):null;
+ const r={id:c?.id||uid(),updatedAt:Date.now(),name:name.slice(0,100)};
+ for(const k of CARD_TEXT_KEYS){if(k==="name")continue;const fid=({baseTotal:"base",seasonBonus:"bonus",shownTotal:"shown",teamSkill:"team",otherBonuses:"other",skillNote:"skillnote",evaluationNote:"evalnote"})[k]||k; r[k]=cardReadValue("ce-"+fid).slice(0,2000);}
+ for(const k of CARD_NUMERIC_KEYS){const fid=({baseTotal:"base",seasonBonus:"bonus",shownTotal:"shown"})[k]||k;const raw=cardReadValue("ce-"+fid); if(raw!==""&&cardNum(raw)==null){alert(k+" は0以上の数字を指定してください。");return;}r[k]=cardNum(raw);}
+ r.skills=cardReadValue("ce-skills").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,12);
+ if(c)Object.assign(c,r);else cardStore().push(r);
+ saveDB();closeModal("m-card-eval");renderCardEvaluations();renderCardEvalHome();
+}
+function deleteCardEval(){
+ if(!editCardEvalId||!confirm("このカード評価を削除しますか？"))return;
+ db.cardEvaluations=cardStore().filter(x=>x.id!==editCardEvalId);editCardEvalId=null;saveDB();closeModal("m-card-eval");renderCardEvaluations();renderCardEvalHome();
+}
+function cardImportChanged(){cardImportPlan=null;$("ce-import-commit").disabled=true;$("ce-import-preview").textContent="JSONを変更しました。もう一度確認してください。";}
+function openCardImport(){cardImportPlan=null;$("ce-import-text").value="";$("ce-import-commit").disabled=true;$("ce-import-preview").textContent="未確認";openModal("m-card-import");}
+function cardNormalize(row){
+ if(!row||typeof row!=="object"||Array.isArray(row))throw Error("カードはオブジェクトで指定してください。");
+ const name=String(row.name||"").trim();if(!name)throw Error("選手名は必須です。");
+ const out={name:name.slice(0,100)};
+ for(const k of CARD_TEXT_KEYS){if(k!=="name"&&row[k]!=null)out[k]=String(row[k]).slice(0,2000);}
+ for(const k of CARD_NUMERIC_KEYS){if(row[k]!=null&&row[k]!==""){const n=cardNum(row[k]);if(n==null)throw Error(name+" の "+k+" が不正です。");out[k]=n;}}
+ if(row.skills!=null){if(!Array.isArray(row.skills))throw Error(name+" の skills は配列で指定してください。");out.skills=row.skills.filter(x=>typeof x==="string").map(x=>x.slice(0,160)).slice(0,12);}
+ return out;
+}
+function cardFill(target,source){let added=0;for(const [k,v] of Object.entries(source)){if(k==="name")continue; if(v==null||v===""||(Array.isArray(v)&&!v.length))continue;const old=target[k];if(old==null||old===""||(Array.isArray(old)&&!old.length)){target[k]=v;added++;}}return added;}
+function cardPlanImport(rows){
+ const all=cardStore().map(c=>({...c,skills:Array.isArray(c.skills)?[...c.skills]:[],__existing:true}));let created=0,filled=0,unchanged=0;
+ for(const v of rows){const c=cardNormalize(v);let match=all.find(x=>cardIdentity(x)===cardIdentity(c));if(match){if(cardFill(match,c)){filled++;match.updatedAt=Date.now();}else unchanged++;}else{all.push({...c,id:uid(),updatedAt:Date.now(),__existing:false});created++;}}
+ return {all,created,filled,unchanged};
+}
+function previewCardImport(){
+ cardImportPlan=null;$("ce-import-commit").disabled=true;
+ try{const raw=cardReadValue("ce-import-text");if(!raw)throw Error("JSONを貼り付けてください。"); const j=JSON.parse(raw);const rows=Array.isArray(j)?j:j.cards;if(!Array.isArray(rows)||rows.length<1||rows.length>200)throw Error("cards の配列を1〜200件で指定してください。");
+ const p=cardPlanImport(rows);cardImportPlan={...p,raw};$("ce-import-preview").textContent=`読み込み${rows.length}枚 → 新規${p.created}枚／既存カードの空欄補完${p.filled}枚／変更なし${p.unchanged}枚。既存の値は上書きしません。`;$("ce-import-commit").disabled=!(p.created||p.filled);
+ }catch(e){$("ce-import-preview").textContent="確認エラー："+e.message;}
+}
+function commitCardImport(){
+ const p=cardImportPlan;if(!p||p.raw!==cardReadValue("ce-import-text")){alert("内容をもう一度確認してください。");return;}
+ if(!confirm(`新規${p.created}枚・空欄補完${p.filled}枚を取り込みますか？`))return;
+ db.cardEvaluations=p.all.map(({__existing,...c})=>c);saveDB();cardImportPlan=null;closeModal("m-card-import");renderCardEvalHome();if(!$("view-cards").classList.contains("hidden"))renderCardEvaluations();
+}
+function addCardExamples(){
+ const examples=[
+ {name:"井上樹",series:"EXPECTED PLAYERS",season:"2026/27",grade:85,club:"ヴァンフォーレ甲府",position:"DF",owned:"wishlist",shownTotal:7019,
+ skills:["ダイナミックインターセプトA","ピンポイントタックルA","空中戦の競り合いA（選択）","レーザービームA（選択）"],teamSkill:"DF＆GK全パラメータ強化A+10",otherBonuses:"EP50%アップ＋スタミナ15%アップ（Wセンス）",
+ skillNote:"タックル・インターセプト・空中戦を選べる構成。発動率・発動範囲の定量実測は未確認。",evaluationNote:"甲府の守備強化候補。現在のDF・クラブリンクとの比較は未実施。",certainty:"暫定",source:"2026/11/18提供スクショ・会話。シーズンボーナス数値未確認。"},
+ {name:"内藤大和",series:"EXPECTED PLAYERS",season:"2026/27",grade:85,club:"ヴァンフォーレ甲府",position:"FW",owned:"wishlist",shownTotal:7006,
+ skills:["超次元シュートA","ハイコントロールシュートA","超絶ヘッドA（選択）","光速ドリブルA（選択）"],teamSkill:"FW全パラメータ強化A+10",otherBonuses:"EP50%アップ＋オフェンス15%アップ（Wセンス）",
+ skillNote:"シュート2系統＋ドリブルまたはヘッドを選択。実戦発動率は未確認。",evaluationNote:"手持ちの旧シーズンFOCUSED G90と、シーズンボーナス・育成状態込みの比較が必要。",certainty:"暫定",source:"2026/11/18提供スクショ・会話。シーズンボーナス数値未確認。"}
+ ];
+ const p=cardPlanImport(examples);if(!p.created&&!p.filled){alert("評価例は登録済みです。");return;}
+ if(!confirm(`甲府エクスペ${p.created+p.filled}枚の評価例を登録しますか？ボーナスは未確認のままです。`))return;
+ db.cardEvaluations=p.all.map(({__existing,...c})=>c);saveDB();renderCardEvaluations();renderCardEvalHome();
 }
 
 /* ---------- 起動 ---------- */
