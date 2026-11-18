@@ -6,13 +6,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default" id="meta-sbar">
 <meta name="theme-color" content="#0B1220" id="meta-theme">
-<title>ランイベ手帳</title>
+<title>Jクラ総合手帳</title>
 <script>
 /* ===== 自動更新チェック（iOSホーム画面アプリのキャッシュ対策） =====
    このページ自身をキャッシュ無視で取得し、埋め込んだビルド番号を比較。
    新しいビルドがサーバーにあれば、キャッシュを回避できるクエリ付きURLへ
    その場でジャンプして最新化する。ユーザー操作・再インストールは不要。 */
-window.__BUILD__ = "20261112.1";
+window.__BUILD__ = "20261118.1";
 (function(){
   try{
     fetch(location.pathname, {cache:"no-store"})
@@ -624,6 +624,37 @@ select{appearance:none;-webkit-appearance:none;
 .tm-limit{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px;color:var(--text)}
 .tm-limit input{width:auto;flex:0 0 auto}
 .tm-btn{display:inline-block;font-size:11px;color:var(--border-c);padding:9px 0;text-align:left}
+
+/* ===== Jクラ総合・周回イベント拡張 ===== */
+.jc-top{background:linear-gradient(150deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--radius-card);padding:16px;margin-bottom:14px}
+.jc-caption{font-size:11px;color:var(--sub);line-height:1.65}
+.jc-title{font-size:14px;font-weight:800;margin:0 0 10px}
+.jc-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.jc-stat{background:var(--ink);padding:10px 8px;border-radius:11px;min-width:0}
+.jc-stat .k{font-size:10px;color:var(--sub)}
+.jc-stat .v{font-size:17px;font-weight:800;font-family:var(--mono);margin-top:5px;overflow-wrap:anywhere}
+.jc-heading{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:18px 0 9px;font-size:14px;font-weight:800}
+.jc-link{font-size:12px;color:var(--border-c);font-weight:650;padding:8px 0}
+.jc-subtitle{font-size:11px;color:var(--sub);margin:9px 0 7px;line-height:1.7}
+.jc-card{width:100%;text-align:left;display:block;border-radius:var(--radius-card);background:var(--panel);border:1px solid var(--line);padding:14px;margin:9px 0}
+.jc-card:active{background:var(--panel2)}
+.jc-card strong{font-size:14px}
+.jc-card .meta{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.7}
+.jc-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 13px}
+.jc-btn{font-size:12px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-weight:700;color:var(--text)}
+.jc-btn.primary{color:var(--border-c);border-color:var(--border-c)}
+.jc-progress{height:9px;border-radius:99px;background:var(--rail);overflow:hidden;margin:8px 0 5px}
+.jc-progress > div{height:100%;background:var(--border-c);border-radius:99px}
+.jc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:12px}
+.jc-row:last-child{border-bottom:0}
+.jc-row .secondary{color:var(--sub)}
+.jc-note{background:var(--panel2);padding:12px;border-radius:11px;line-height:1.8;font-size:12px;color:var(--sub);margin:12px 0}
+.jc-accent{font-size:17px;font-weight:800;color:var(--text)}
+.jc-good{color:var(--safe)}.jc-warn{color:var(--warn)}
+.jc-list{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin:9px 0}
+.jc-list button{width:100%;text-align:left;display:block;padding:12px;border-bottom:1px solid var(--line);font-size:12px;background:var(--panel)}
+.jc-list button:last-child{border-bottom:none}
+@media(max-width:360px){header h1{font-size:15px}.jc-stats .v{font-size:15px}header .h-act{font-size:11px}}
 </style>
 </head>
 <body>
@@ -631,19 +662,24 @@ select{appearance:none;-webkit-appearance:none;
 <!-- ============ ホーム ============ -->
 <div id="view-home">
   <header>
-    <h1 style="display:flex;align-items:baseline;gap:8px">ランイベ手帳
-      <span style="font-size:10px;color:var(--faint);letter-spacing:.12em;font-weight:400">Jクラ RANKING TRACKER</span>
+    <h1 style="display:flex;align-items:baseline;gap:8px">Jクラ総合手帳
+      <span style="font-size:10px;color:var(--faint);letter-spacing:.12em;font-weight:400">Jクラ EVENT NOTE</span>
     </h1>
+    <button class="h-act" onclick="openActivityEditor()">＋周回</button>
     <button class="h-act" onclick="showLearn()">学習</button>
     <button class="h-act" onclick="openDataModal()">データ</button>
   </header>
   <div class="wrap">
+    <div id="global-overview"></div>
+    <div id="activity-overview"></div>
+    <div id="card-goals-overview"></div>
     <div class="seg" id="home-seg">
       <button data-f="all" class="on" onclick="setHomeFilter('all')">すべて</button>
       <button data-f="active" onclick="setHomeFilter('active')">開催中</button>
       <button data-f="done" onclick="setHomeFilter('done')">完了</button>
     </div>
     <div id="ev-list"></div>
+    <div id="performance-overview"></div>
   </div>
   <button class="fab" onclick="openEventModal()" aria-label="新規イベント">＋ イベント</button>
 </div>
@@ -713,6 +749,89 @@ select{appearance:none;-webkit-appearance:none;
     </div>
     <div id="learn-stats"></div>
   </div>
+</div>
+
+<!-- ============ 周回・資源イベント専用画面 ============ -->
+<div id="view-activity" class="hidden">
+  <header>
+    <button class="back" onclick="showHome()" aria-label="戻る">‹</button>
+    <h1 id="activity-title">周回イベント</h1>
+    <button class="h-act" onclick="openActivityEditor(state.activityId)">編集</button>
+  </header>
+  <div class="wrap">
+    <div id="activity-detail"></div>
+  </div>
+</div>
+
+<!-- ============ モーダル：周回イベント作成・編集 ============ -->
+<div class="modal-bg" id="m-activity">
+  <div class="modal">
+    <div class="grip"></div><h2 id="activity-edit-title">周回イベントを作成</h2>
+    <label>イベント種類</label>
+    <select id="a-type" onchange="activityTypeChanged()">
+      <option value="victory">ビクトリーロード（ビグロ）</option>
+      <option value="flag">旗集め・クラブサポーターズ</option>
+      <option value="training">トレーニングキャンプ</option>
+      <option value="adidas">アディチャレ</option>
+      <option value="other">その他（周回・目標型）</option>
+    </select>
+    <label>イベント名</label><input id="a-name" placeholder="例：2026年11月 ビクトリーロード">
+    <div class="grid2">
+      <div><label>開始日時（任意）</label><input type="datetime-local" id="a-start"></div>
+      <div><label>終了日時（任意）</label><input type="datetime-local" id="a-end"></div>
+    </div>
+    <label>イベント固有の累計目標（任意）</label>
+    <div class="grid2"><input id="a-progress-label" placeholder="例：旗・メダル・MP"><input type="number" inputmode="numeric" id="a-progress-goal" placeholder="例：3000"></div>
+    <div class="m-sub" style="margin-top:14px">周回数とGP設定（ビグロ向け／必要に応じて変更可）</div>
+    <div class="grid2"><div><label>HARD 目標周数</label><input type="number" id="a-hard-target" inputmode="numeric"></div><div><label>HARD 1試合GP</label><input type="number" id="a-hard-gp" inputmode="numeric"></div></div>
+    <div class="grid2"><div><label>NORMAL 目標周数</label><input type="number" id="a-normal-target" inputmode="numeric"></div><div><label>NORMAL 1試合GP</label><input type="number" id="a-normal-gp" inputmode="numeric"></div></div>
+    <div class="grid2"><div><label>EASY 目標周数</label><input type="number" id="a-easy-target" inputmode="numeric"></div><div><label>EASY 1試合GP</label><input type="number" id="a-easy-gp" inputmode="numeric"></div></div>
+    <div class="grid2"><div><label>1周の試合数</label><input type="number" id="a-matches" inputmode="numeric"></div><div><label>1試合の目安（分）</label><input type="number" id="a-minutes" inputmode="decimal"></div></div>
+    <label>優先報酬・最低目標</label><input id="a-main-goal" placeholder="例：HARD20周 FOCUSED券">
+    <label>理想目標</label><input id="a-ideal-goal" placeholder="例：HARD30周 G85券">
+    <label>撤退条件・使わない資源</label><input id="a-stop-rule" placeholder="例：寝る時間を削らない・バモ使用なし">
+    <label class="checkline"><input type="checkbox" id="a-box-assume" checked> 進んだ箱のGP回復薬を全回収した前提で収支推定</label>
+    <div class="note">この設定はビグロの箱（フル1本、ハーフ5本／箱）用です。取得数はスクショの残数から計算。ボックス外の配布分は自動推定できません。</div>
+    <label>メモ</label><textarea id="a-memo" rows="2" placeholder="イベントに関するメモ"></textarea>
+    <label>ステータス</label><select id="a-status"><option value="active">開催中</option><option value="done">完了</option><option value="draft">下書き</option></select>
+    <button class="btn primary" onclick="saveActivityEditor()">保存</button>
+    <button class="btn ghost" onclick="closeModal('m-activity')">戻る</button>
+    <div id="a-delete-area" class="danger-zone hidden"><button class="btn danger-o" onclick="deleteActivity()">この周回イベントを削除</button></div>
+  </div>
+</div>
+
+<!-- ============ モーダル：周回スナップショット ============ -->
+<div class="modal-bg" id="m-activity-rec">
+ <div class="modal">
+  <div class="grip"></div><h2 id="activity-rec-title">進捗を記録</h2>
+  <label>日時</label><input id="ar-datetime" type="datetime-local">
+  <div class="grid2"><div><label>HARDクリア周</label><input type="number" id="ar-hard" inputmode="numeric"></div><div><label>NORMALクリア周</label><input type="number" id="ar-normal" inputmode="numeric"></div></div>
+  <div class="grid2"><div><label>EASYクリア周</label><input type="number" id="ar-easy" inputmode="numeric"></div><div><label>累計ポイント・旗・メダル</label><input type="number" id="ar-progress" inputmode="numeric"></div></div>
+  <div class="grid2"><div><label>現在GP</label><input type="number" id="ar-gp" inputmode="numeric"></div><div><label>バモ残</label><input type="number" id="ar-vamo" inputmode="numeric"></div></div>
+  <div class="grid2"><div><label>GP回復薬フル残</label><input type="number" id="ar-gpheal" inputmode="numeric"></div><div><label>GPハーフ残</label><input type="number" id="ar-gphalf" inputmode="numeric"></div></div>
+  <div class="grid2"><div><label>BP回復薬残</label><input type="number" id="ar-bpheal" inputmode="numeric"></div><div><label>BPミニ残</label><input type="number" id="ar-bpmini" inputmode="numeric"></div></div>
+  <div class="m-sub" style="margin-top:12px">ビクトリーボックス記録（分かる範囲のみ）</div>
+  <div class="grid2"><div><label>現在の箱番号</label><input type="number" id="ar-box" inputmode="numeric"></div><div><label>箱に残る景品数</label><input type="number" id="ar-boxremain" inputmode="numeric"></div></div>
+  <div class="grid2"><div><label>箱内：フル未獲得本数</label><input type="number" id="ar-fullremain" inputmode="numeric" placeholder="例：0"></div><div><label>箱内：ハーフ未獲得本数</label><input type="number" id="ar-halfremain" inputmode="numeric" placeholder="例：3"></div></div>
+  <label>未使用ボックスチケット</label><input type="number" id="ar-tickets" inputmode="numeric">
+  <label>獲得した主な報酬・メモ</label><textarea id="ar-note" rows="2"></textarea>
+  <button class="btn primary" onclick="saveActivityRecord()">保存</button>
+  <button class="btn ghost" onclick="closeModal('m-activity-rec')">キャンセル</button>
+  <div id="ar-delete-area" class="danger-zone hidden"><button class="btn danger-o" onclick="deleteActivityRecord()">この記録を削除</button></div>
+ </div>
+</div>
+
+<!-- ============ モーダル：周回イベント複数記録取り込み ============ -->
+<div class="modal-bg" id="m-activity-batch">
+ <div class="modal">
+  <div class="grip"></div><h2>周回記録をまとめて取り込み</h2>
+  <div class="note">写真そのものは読み取りません。スクショをChatGPTに送って、下の形式のJSONを作り、ここへまとめて貼り付けてください。既存の記録は消しません。</div>
+  <textarea id="activity-batch-input" rows="10" style="font-family:ui-monospace,monospace;font-size:12px" placeholder='{"records":[{"datetime":"2026-11-18 12:16","hardRounds":27,"normalRounds":1,"easyRounds":1,"gpHeal":101,"gpHealHalf":179,"boxNo":8,"boxFullRemaining":0,"boxHalfRemaining":3}]}'></textarea>
+  <button class="btn ghost" onclick="previewActivityBatch()">内容を確認</button>
+  <div id="activity-batch-preview" class="note" style="margin:10px 0;line-height:1.7">取り込み内容の確認結果をここへ表示</div>
+  <button class="btn primary" id="activity-batch-commit" onclick="commitActivityBatch()" disabled>確認した記録を保存</button>
+  <button class="btn ghost" onclick="closeModal('m-activity-batch')">戻る</button>
+ </div>
 </div>
 
 <!-- ============ モーダル：イベント作成/編集 ============ -->
@@ -986,12 +1105,12 @@ select{appearance:none;-webkit-appearance:none;
         <button data-th="paper" onclick="setTheme('paper')">ライト</button>
       </div>
     </div>
-    <div class="m-sub">データはこの端末のブラウザ内（localStorage）に保存されます。念のため定期的にバックアップしてください。</div>
+    <div class="m-sub">ランキング・周回イベント・カード目標は、この端末のブラウザ内（localStorage）に保存されます。更新前・定期的に必ずバックアップしてください。GitHubへのコード更新だけではスマホの保存内容を変更しません。</div>
     <button class="btn ghost" onclick="exportJSON()">JSONバックアップを書き出す</button>
     <label>バックアップを読み込む（貼り付け）</label>
     <textarea id="import-text" placeholder="書き出したJSONをここに貼り付け"></textarea>
     <button class="btn ghost" onclick="importJSON()">読み込んで復元</button>
-    <div class="note">復元は現在のデータを上書きします。読み込み前に現在のデータの書き出しを推奨します。</div>
+    <div class="note">復元は現在のデータ（周回イベントを含む）を上書きします。古いバックアップを復元すると、新しい周回記録が消える場合があるため、先に現在のJSONを保存してください。</div>
     <button class="btn ghost" onclick="db.settings.guideDismissed=false;saveDB();closeModal('m-data');showHome();" style="margin-top:18px">使い方ガイドを再表示</button>
     <button class="btn primary" onclick="closeModal('m-data')">閉じる</button>
   </div>
@@ -1031,6 +1150,8 @@ const STATUS_LABEL = {active:"開催中", done:"完了", draft:"下書き"};
 /* ---------- ストア ---------- */
 let db = loadDB();
 db.settings = db.settings || {};
+db.activities = Array.isArray(db.activities) ? db.activities : [];
+db.cardGoals = Array.isArray(db.cardGoals) ? db.cardGoals : [];
 function loadDB(){
   try{
     const raw = localStorage.getItem(LS_KEY);
@@ -1811,15 +1932,19 @@ function setHomeFilter(f){
   renderHome();
 }
 function renderHome(){
+  renderGlobalOverview();
+  renderActivityOverview();
+  renderCardGoals();
+  renderPerformanceOverview();
   const list = $("ev-list");
   const guide = db.settings.guideDismissed ? "" :
-    `<div class="card guide"><h3>使い方は3ステップだけ</h3>
-      <div style="font-size:14px;line-height:2.1">
-        <b style="color:var(--me)">①</b> ランイベが始まったらイベントを作る（2回目からは複製が速い）<br>
-        <b style="color:var(--me)">②</b> 気づいたときに「自分のpt」と「ボーダー」を記録する<br>
-        <b style="color:var(--me)">③</b> 終了間際に最終値を記録して「完了」にする
+    `<div class="card guide"><h3>総合手帳の使い方</h3>
+      <div style="font-size:13px;line-height:2.0">
+        <b style="color:var(--me)">①</b> ランキング型は下の「＋ イベント」、ビグロなどは「＋周回」で登録<br>
+        <b style="color:var(--me)">②</b> スクショを送って一括取り込みJSONを作れば、手入力を減らせます<br>
+        <b style="color:var(--me)">③</b> 目標・撤退条件・資源の正味増減で、止めどきを判断
       </div>
-      <div class="note">記録が増えると、現在差・終了時ボーダー・必要ペースを分けて予測します。固定の1周ptは通常の判定には使いません。</div>
+      <div class="note">既存のランキング予測は従来どおり利用できます。周回イベントは資源とステージ・ボックスを記録します。</div>
       <button class="small-link" onclick="dismissGuide()">閉じる（設定はデータ画面から戻せます）</button>
     </div>`;
   let evs = [...db.events];
@@ -1827,7 +1952,7 @@ function renderHome(){
   if(state.homeFilter==="done")   evs = evs.filter(e=>e.status==="done");
   evs.sort((a,b)=>(b.start||0)-(a.start||0));
   if(!evs.length){
-    list.innerHTML = guide + `<div class="empty">イベントがありません。<br>右下の「＋ イベント」から最初のランイベを登録しましょう。</div>`;
+    list.innerHTML = guide + `<div class="empty">ランキングイベントの登録はまだありません。<br>右下の「＋ イベント」から登録できます。</div>`;
     return;
   }
   const live = evs.filter(e=>e.status==="active"||e.status==="draft");
@@ -1881,7 +2006,7 @@ function renderHome(){
     }).join("") + `</div>`;
   }
   if(!live.length && state.homeFilter!=="done"){
-    out += `<div class="empty" style="margin-bottom:12px">開催中のイベントはありません。<br>右下の「＋ イベント」から登録できます。</div>`;
+    out += `<div class="empty" style="margin-bottom:12px">開催中のランキングイベントはありません。<br>右下の「＋ イベント」から登録できます。</div>`;
   }
   list.innerHTML = out;
 }
@@ -1895,6 +2020,8 @@ function showHome(){
   state.evId=null;
   $("view-event").classList.add("hidden");
   $("view-learn").classList.add("hidden");
+  $("view-activity").classList.add("hidden");
+  state.activityId=null;
   $("view-home").classList.remove("hidden");
   renderHome();
   window.scrollTo(0,0);
@@ -1909,6 +2036,7 @@ function showEvent(id){
   state.tab="dash"; state.chartSel=null;
   $("view-home").classList.add("hidden");
   $("view-learn").classList.add("hidden");
+  $("view-activity").classList.add("hidden");
   $("view-event").classList.remove("hidden");
   document.querySelectorAll("#ev-tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t==="dash"));
   renderEvent();
@@ -4335,7 +4463,7 @@ function importJSON(){
   try{ d = JSON.parse(t); }catch(e){ alert("JSONの形式が正しくありません。\n"+e.message); return; }
   if(!d || !Array.isArray(d.events)){ alert("ランイベ手帳のバックアップ形式ではありません。"); return; }
   if(!confirm(`イベント${d.events.length}件のデータで現在のデータを上書きします。よろしいですか？`)) return;
-  db = d; saveDB(); closeModal("m-data"); showHome();
+  db = d; db.settings=db.settings||{}; db.activities=Array.isArray(db.activities)?db.activities:[]; db.cardGoals=Array.isArray(db.cardGoals)?db.cardGoals:[]; saveDB(); closeModal("m-data"); showHome();
 }
 
 /* =====================================================
@@ -4345,6 +4473,7 @@ function showLearn(){
   state.learnType = "all";
   $("view-home").classList.add("hidden");
   $("view-event").classList.add("hidden");
+  $("view-activity").classList.add("hidden");
   $("view-learn").classList.remove("hidden");
   renderLearn();
   window.scrollTo(0,0);
@@ -4439,6 +4568,450 @@ function drawLearnChart(use){
   ctx.stroke();
 }
 
+/* =====================================================
+   Jクラ総合手帳：周回・資源イベント v20261118.1
+   旧ランイベのevents/boards/recordsには非破壊で追加。
+===================================================== */
+const ACTIVITY_TYPES={
+ victory:"ビクトリーロード",flag:"旗集め・クラブサポーターズ",
+ training:"トレーニングキャンプ",adidas:"アディチャレ",other:"その他のイベント"
+};
+const AR_PROPS={
+ hardRounds:"ar-hard",normalRounds:"ar-normal",easyRounds:"ar-easy",
+ progress:"ar-progress",gp:"ar-gp",vamo:"ar-vamo",gpHeal:"ar-gpheal",
+ gpHealHalf:"ar-gphalf",bpHeal:"ar-bpheal",bpHealMini:"ar-bpmini",
+ boxNo:"ar-box",boxRemaining:"ar-boxremain",
+ boxFullRemaining:"ar-fullremain",boxHalfRemaining:"ar-halfremain",
+ boxTickets:"ar-tickets",note:"ar-note"
+};
+let editingActivityId=null, editingActivityRecId=null, previewActivityRows=null;
+function arNum(x){
+  const n=numOrNull(x);return n!=null&&Number.isFinite(n)&&n>=0?n:null;
+}
+function act(){return (db.activities||[]).find(x=>x.id===state.activityId)||null;}
+function arRecs(a){return [...(a.records||[])].filter(r=>Number.isFinite(Number(r.ts))).sort((x,y)=>x.ts-y.ts);}
+function arLast(a){const r=arRecs(a);return r.length?r[r.length-1]:null;}
+function arVal(a,k){const r=arRecs(a);for(let i=r.length-1;i>=0;i--){const v=arNum(r[i][k]);if(v!=null)return v;}return null;}
+function jcRenderNum(n,unit=""){return n==null?"未記録":fmt(n)+unit;}
+function jcDate(ts){return ts?fmtDT(ts):"日時未設定";}
+function jcToDate(s){
+  if(s==null||s==="")return null;
+  if(typeof s==="number" && Number.isFinite(s))return s;
+  const v=String(s).trim().replace(" ","T");
+  // Jクラのスクショは日本時間。日時にオフセットが無ければ JST として読む。
+  const plain=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(v);
+  const t=new Date(plain?v+"+09:00":v).getTime();return Number.isFinite(t)?t:null;
+}
+function arIsLive(a){return a.status!=="done" && a.end && a.end>Date.now();}
+function arStatus(a){return a.status==="done"||a.end&&Date.now()>=a.end?"完了":a.status==="draft"?"下書き":"開催中";}
+function arDefault(type){
+ return {id:uid(),type:type||"victory",name:ACTIVITY_TYPES[type||"victory"],start:null,end:null,
+ status:"active",progressLabel:type==="flag"?"旗":type==="training"?"メダル":type==="adidas"?"MP":"",progressGoal:null,
+ hardTarget:type==="victory"?30:null,normalTarget:type==="victory"?20:null,easyTarget:type==="victory"?10:null,
+ hardGp:type==="victory"?30:null,normalGp:type==="victory"?20:null,easyGp:type==="victory"?10:null,
+ matches:type==="victory"?6:1,minutes:1.5,mainGoal:"",idealGoal:"",stopRule:"",memo:"",
+ assumeBoxPotions:type==="victory",records:[]};
+}
+function activityTypeChanged(){
+ const type=$("a-type").value;
+ if(!$("a-name").value || Object.values(ACTIVITY_TYPES).includes($("a-name").value)) $("a-name").value=ACTIVITY_TYPES[type];
+ const oldLabel=$("a-progress-label").value;
+ if(!oldLabel || ["旗","メダル","MP"].includes(oldLabel)) $("a-progress-label").value=({flag:"旗",training:"メダル",adidas:"MP"})[type]||"";
+ // ランキング以外の単純累計イベントにビグロの30/20/10周を引き継がない。
+ if(type!=="victory"&&!editingActivityId){
+  ["a-hard-target","a-normal-target","a-easy-target","a-hard-gp","a-normal-gp","a-easy-gp"].forEach(id=>$(id).value="");
+  $("a-matches").value=1;$("a-box-assume").checked=false;
+ }else if(type==="victory"&&!editingActivityId){
+  const defs={"a-hard-target":30,"a-normal-target":20,"a-easy-target":10,"a-hard-gp":30,"a-normal-gp":20,"a-easy-gp":10,"a-matches":6};
+  Object.entries(defs).forEach(([id,v])=>{if(!$(id).value)$(id).value=v;});
+  $("a-box-assume").checked=true;
+ }
+}
+function openActivityEditor(id){
+ editingActivityId=id||null;
+ const a=editingActivityId?(db.activities||[]).find(x=>x.id===editingActivityId):arDefault("victory");
+ if(!a)return;
+ $("activity-edit-title").textContent=id?"周回イベントを編集":"周回イベントを作成";
+ $("a-type").value=a.type||"other";$("a-name").value=a.name||"";
+ $("a-start").value=a.start?toLocalInput(a.start):"";$("a-end").value=a.end?toLocalInput(a.end):"";
+ const fs={"a-progress-label":"progressLabel","a-progress-goal":"progressGoal",
+ "a-hard-target":"hardTarget","a-normal-target":"normalTarget","a-easy-target":"easyTarget",
+ "a-hard-gp":"hardGp","a-normal-gp":"normalGp","a-easy-gp":"easyGp",
+ "a-matches":"matches","a-minutes":"minutes",
+ "a-main-goal":"mainGoal","a-ideal-goal":"idealGoal","a-stop-rule":"stopRule","a-memo":"memo"};
+ Object.entries(fs).forEach(([k,v])=>$(k).value=a[v]??"");
+ $("a-status").value=a.status||"active";$("a-box-assume").checked=a.assumeBoxPotions!==false;
+ $("a-delete-area").classList.toggle("hidden",!id);
+ openModal("m-activity");
+}
+function saveActivityEditor(){
+ const name=$("a-name").value.trim();if(!name){alert("イベント名を入力してください");return;}
+ const start=fromLocalInput($("a-start").value),end=fromLocalInput($("a-end").value);
+ if(start&&end&&end<=start){alert("終了日時は開始日時より後にしてください");return;}
+ let a=editingActivityId?(db.activities||[]).find(x=>x.id===editingActivityId):null;
+ if(!a){a=arDefault($("a-type").value);db.activities.unshift(a);}
+ a.type=$("a-type").value;a.name=name;a.start=start;a.end=end;a.status=$("a-status").value;
+ const fields={progressLabel:"a-progress-label",mainGoal:"a-main-goal",idealGoal:"a-ideal-goal",stopRule:"a-stop-rule",memo:"a-memo"};
+ Object.entries(fields).forEach(([k,id])=>a[k]=$(id).value.trim());
+ const nums={progressGoal:"a-progress-goal",hardTarget:"a-hard-target",normalTarget:"a-normal-target",easyTarget:"a-easy-target",
+ hardGp:"a-hard-gp",normalGp:"a-normal-gp",easyGp:"a-easy-gp",matches:"a-matches",minutes:"a-minutes"};
+ Object.entries(nums).forEach(([k,id])=>a[k]=arNum($(id).value));
+ if(a.matches==null||a.matches<1)a.matches=6;
+ a.assumeBoxPotions=$("a-box-assume").checked;
+ saveDB();closeModal("m-activity");showActivity(a.id);toast("周回イベントを保存しました");
+}
+function deleteActivity(){
+ const a=(db.activities||[]).find(x=>x.id===editingActivityId);if(!a)return;
+ if(!confirm(`「${a.name}」とその全記録を削除しますか？この操作は元に戻せません。先にバックアップを推奨します。`))return;
+ db.activities=db.activities.filter(x=>x.id!==a.id);saveDB();closeModal("m-activity");showHome();
+}
+function showActivity(id){
+ state.activityId=id;const a=act();if(!a)return showHome();
+ state.evId=null;
+ $("view-home").classList.add("hidden");$("view-event").classList.add("hidden");$("view-learn").classList.add("hidden");
+ $("view-activity").classList.remove("hidden");
+ $("activity-title").textContent=a.name;
+ renderActivityDetail();window.scrollTo(0,0);
+}
+function activityStatRows(){
+ const snaps=[];
+ (db.events||[]).forEach(e=>(e.boards||[]).forEach(b=>(b.records||[]).forEach(r=>snaps.push({ts:Number(r.ts),r,source:e.name}))));
+ (db.activities||[]).forEach(a=>(a.records||[]).forEach(r=>snaps.push({ts:Number(r.ts),r,source:a.name})));
+ return snaps.filter(x=>Number.isFinite(x.ts)).sort((x,y)=>y.ts-x.ts);
+}
+function activityLatestStock(key){
+ for(const sn of activityStatRows()){
+   const val=arNum(sn.r[key]);if(val!=null)return {value:val,ts:sn.ts,source:sn.source};
+ }
+ return null;
+}
+function renderGlobalOverview(){
+ const dest=$("global-overview");if(!dest)return;
+ const v=activityLatestStock("vamo"),f=activityLatestStock("gpHeal"),h=activityLatestStock("gpHealHalf");
+ const has=[v,f,h].some(Boolean);
+ const count=(db.events||[]).filter(e=>e.status==="active").length+(db.activities||[]).filter(a=>arStatus(a)==="開催中").length;
+ dest.innerHTML=`<section class="jc-top">
+  <div class="jc-title">マイ資源 <span class="jc-caption">・記録された最新値</span></div>
+  <div class="jc-stats">
+   <div class="jc-stat"><div class="k">バモ</div><div class="v">${v?fmt(v.value):"—"}</div></div>
+   <div class="jc-stat"><div class="k">GPフル</div><div class="v">${f?fmt(f.value):"—"}</div></div>
+   <div class="jc-stat"><div class="k">GPハーフ</div><div class="v">${h?fmt(h.value):"—"}</div></div>
+  </div>
+  <div class="jc-caption" style="margin-top:9px">${has?`記録の時刻：${esc(jcDate(Math.max(...[v,f,h].filter(Boolean).map(x=>x.ts))))} など。現在値とは限りません。`:
+  "記録が増えると最新の資源残数が表示されます。"} ${count}件のイベントを開催中として登録</div>
+ </section>`;
+}
+function renderActivityOverview(){
+ const dest=$("activity-overview");if(!dest)return;
+ const all=[...(db.activities||[])].sort((x,y)=>(y.start||0)-(x.start||0));
+ const visibles=all.filter(a=>state.homeFilter==="all"||(state.homeFilter==="active"?(arStatus(a)==="開催中"||arStatus(a)==="下書き"):arStatus(a)==="完了"));
+ const live=visibles.filter(a=>arStatus(a)==="開催中"||arStatus(a)==="下書き");
+ const rest=visibles.filter(a=>!live.includes(a));
+ let html=`<div class="jc-heading"><span>周回・資源イベント</span><button class="jc-link" onclick="openActivityEditor()">＋ 新規登録</button></div>`;
+ if(!all.some(a=>a.type==="victory"&&a.start&&a.start>=Date.parse("2026-11-16T00:00:00+09:00")&&a.start<Date.parse("2026-11-21T00:00:00+09:00"))){
+  html+=`<div class="jc-note">今回のビグロのスクショ記録を登録できます。<br><button class="jc-btn primary" onclick="importRecentVictory()">11月ビグロの確認済み履歴を追加</button></div>`;
+ }
+ if(visibles.length){html+=[...live,...rest].map(a=>{
+  const last=arLast(a),r=arRecs(a);
+  const hard=arVal(a,"hardRounds"),g=arNum(a.hardTarget);
+  const v=a.type==="victory"&&hard!=null?`HARD ${fmt(hard)}${g!=null?" / "+fmt(g):""}周`:(a.progressLabel&&arVal(a,"progress")!=null?`${esc(a.progressLabel)} ${fmt(arVal(a,"progress"))}`:r.length+"件の記録");
+  return `<button class="jc-card" onclick="showActivity('${a.id}')"><strong>${esc(a.name)}</strong><div class="meta">${esc(arStatus(a))}・${v}${last?"・記録 "+esc(jcDate(last.ts)):""}</div></button>`;
+ }).join("");}
+ else html+=`<div class="jc-caption">${state.homeFilter==="all"?"まだ周回イベントの登録がありません。ビグロ・旗集め・トレキャンなどを追加できます。":"該当する周回イベントはありません。"}</div>`;
+ dest.innerHTML=html;
+}
+function arBoxCount(a,r){
+ if(!a||a.type!=="victory"||a.assumeBoxPotions===false||!r)return null;
+ const k=arNum(r.boxNo);if(k==null||k<1)return null;
+ const ff=arNum(r.boxFullRemaining),hh=arNum(r.boxHalfRemaining);
+ return {full:ff!=null&&ff<=1?(k-1)+1-ff:null,
+  half:hh!=null&&hh<=5?(k-1)*5+5-hh:null};
+}
+function arStockDiff(a){
+ const r=arRecs(a);const both=r.filter(x=>arNum(x.gpHeal)!=null&&arNum(x.gpHealHalf)!=null);
+ if(both.length<2)return null;
+ const first=both[0],last=both[both.length-1],b0=arBoxCount(a,first),b1=arBoxCount(a,last);
+ const netFull=first.gpHeal-last.gpHeal,netHalf=first.gpHealHalf-last.gpHealHalf;
+ const collectedFull=b0&&b1&&b0.full!=null&&b1.full!=null?b1.full-b0.full:null;
+ const collectedHalf=b0&&b1&&b0.half!=null&&b1.half!=null?b1.half-b0.half:null;
+ return {first,last,netFull,netHalf,collectedFull,collectedHalf,
+  usedFull:collectedFull==null?null:netFull+collectedFull,
+  usedHalf:collectedHalf==null?null:netHalf+collectedHalf,
+  netGp:netFull*100+netHalf*50};
+}
+function arGoalForecast(a,last){
+ if(!a||!last)return null;
+ const h=Number(a.end)>0?Math.max(0,(a.end-Date.now())/3600000):null;
+ const gp=arNum(last.gp);
+ const regenPerHour=arNum(db.settings.gpRegen)??12;
+ const free=h!=null?(gp??0)+h*regenPerHour:null;
+ const goals=[["HARD","hardRounds","hardTarget","hardGp"],["NORMAL","normalRounds","normalTarget","normalGp"],["EASY","easyRounds","easyTarget","easyGp"]];
+ return {remainingHours:h,available:free,goals:goals.map(([name,key,target,gpfield])=>{
+  const targetVal=arNum(a[target]),cur=arVal(a,key)??0,cost=arNum(a[gpfield]),matches=arNum(a.matches)??6;
+  if(targetVal==null||cost==null)return null;
+  const needRounds=Math.max(0,targetVal-cur),required=needRounds*cost*matches;
+  return {name,cur,target:targetVal,remain:needRounds,required,shortage:free==null?null:Math.max(0,Math.ceil(required-free)),perRound:cost*matches};
+ }).filter(Boolean)};
+}
+function renderActivityDetail(){
+ const a=act();if(!a)return;
+ $("activity-title").textContent=a.name;
+ const last=arLast(a),r=arRecs(a),rs=arStockDiff(a),fore=arGoalForecast(a,last);
+ let html=`<section class="jc-top"><div class="jc-title">${esc(ACTIVITY_TYPES[a.type]||"周回イベント")} ・ ${esc(arStatus(a))}</div>`;
+ html+=`<div class="jc-stats">
+  <div class="jc-stat"><div class="k">記録数</div><div class="v">${r.length}</div></div>
+  <div class="jc-stat"><div class="k">最新GP</div><div class="v">${last&&arNum(last.gp)!=null?fmt(last.gp):"—"}</div></div>
+  <div class="jc-stat"><div class="k">バモ</div><div class="v">${jcRenderNum(arVal(a,"vamo"))}</div></div></div>
+  <div class="jc-caption" style="margin-top:10px">${a.end?remainText(a):"終了日時未設定"} ${last?"／ 最終記録："+esc(jcDate(last.ts)):""}</div></section>`;
+ html+=`<div class="jc-actions"><button class="jc-btn primary" onclick="openActivityRecord()">＋ 記録</button>
+  <button class="jc-btn" onclick="openActivityBatch()">JSON一括取り込み</button>
+  <button class="jc-btn" onclick="openActivityEditor(state.activityId)">目標の編集</button></div>`;
+ if(a.mainGoal||a.idealGoal||a.stopRule)html+=`<div class="jc-note"><b style="color:var(--text)">判断ライン</b>
+  ${a.mainGoal?"<div>最低目標："+esc(a.mainGoal)+"</div>":""}
+  ${a.idealGoal?"<div>理想："+esc(a.idealGoal)+"</div>":""}
+  ${a.stopRule?"<div>撤退条件："+esc(a.stopRule)+"</div>":""}</div>`;
+ if(fore&&fore.goals.length){
+  html+=`<div class="jc-heading">周回進捗と到達予測</div><section class="jc-top">`;
+  fore.goals.forEach(g=>{
+   const pct=g.target?Math.min(100,Math.max(0,g.cur/g.target*100)):0;
+   html+=`<div class="jc-row"><b>${g.name}</b><span class="num">${fmt(g.cur)} / ${fmt(g.target)}周</span></div>
+   <div class="jc-progress"><div style="width:${pct.toFixed(1)}%"></div></div>
+   <div class="jc-caption" style="margin-bottom:12px">あと${fmt(g.remain)}周・${fmt(g.required)}GP${g.shortage!=null?"／単独集中なら不足"+fmt(g.shortage)+"GP":""}</div>`;
+  });
+  html+=`<div class="jc-note">${fore.available==null?"終了日時が未設定のため自然回復の予測はありません。":
+   `終了までの現在GP＋自然回復：約${fmt(Math.floor(fore.available))}GP。各難易度の不足は、それだけに集中した場合の計算で、同時達成ではありません。`}
+   1周の試合数と各難易度のGPは「目標の編集」で変更できます。回復上限や操作時間による損失は未計算。</div></section>`;
+ }else if(a.progressLabel){
+  const p=arVal(a,"progress"),g=arNum(a.progressGoal);
+  html+=`<div class="jc-heading">${esc(a.progressLabel)}の進捗</div><section class="jc-top"><div class="jc-accent">${jcRenderNum(p)}${g!=null?" / "+fmt(g):""}</div>`;
+  if(g!=null)html+=`<div class="jc-progress"><div style="width:${Math.min(100,Math.max(0,(p||0)/Math.max(1,g)*100))}%"></div></div>`;
+  html+=`</section>`;
+ }
+ if(a.type==="victory"){
+  const box=arVal(a,"boxNo"),remain=arVal(a,"boxRemaining"),t=arVal(a,"boxTickets"),bc=arBoxCount(a,last);
+  html+=`<div class="jc-heading">ビクトリーボックス</div><section class="jc-top">
+   <div class="jc-stats"><div class="jc-stat"><div class="k">箱番号</div><div class="v">${box!=null?fmt(box):"—"}</div></div>
+   <div class="jc-stat"><div class="k">残数</div><div class="v">${remain!=null?fmt(remain):"—"}</div></div>
+   <div class="jc-stat"><div class="k">未使用券</div><div class="v">${t!=null?fmt(t):"—"}</div></div></div>
+   <div class="jc-caption" style="margin-top:10px">${bc?`初回からの回収推定：フル ${jcRenderNum(bc.full)}本・ハーフ ${jcRenderNum(bc.half)}本（各箱から取り切る前提）`:"現在の箱番号と薬の未獲得本数を記録すると、ボックス回収量を推定できます。"}</div>
+   ${a.assumeBoxPotions?"<div class='jc-caption'>特賞・GPフル・GPハーフを回収してから次の箱へ進む設定です。</div>":"<div class='jc-caption'>箱ごとの全回収前提はオフです。</div>"}
+  </section>`;
+ }
+ html+=`<div class="jc-heading">資源収支</div><section class="jc-top">`;
+ if(rs){
+  html+=`<div class="jc-stats"><div class="jc-stat"><div class="k">フル正味消費</div><div class="v">${fmt(rs.netFull)}</div></div>
+  <div class="jc-stat"><div class="k">ハーフ正味消費</div><div class="v">${fmt(rs.netHalf)}</div></div>
+  <div class="jc-stat"><div class="k">GP換算正味</div><div class="v">${fmt(rs.netGp)}</div></div></div>
+  <div class="jc-caption" style="margin-top:8px">${esc(jcDate(rs.first.ts))} → ${esc(jcDate(rs.last.ts))} の所持数差。負数なら増加。</div>`;
+  if(rs.usedFull!=null&&rs.usedHalf!=null)html+=`<div class="jc-row"><span>ボックスからの回収推定</span><b>フル ${fmt(rs.collectedFull)} / ハーフ ${fmt(rs.collectedHalf)}</b></div>
+  <div class="jc-row"><span>実際に使った本数の推定</span><b>フル ${fmt(rs.usedFull)} / ハーフ ${fmt(rs.usedHalf)}</b></div>`;
+  else html+=`<div class="jc-note">使用本数の逆算は、開始・最新時点の箱番号と箱内の未回収本数が両方分かると表示できます。</div>`;
+  html+=`<div class="jc-caption">※ボックス以外の回復薬入手・GPのバモ回復は自動判定できないため、使用本数は条件付きの推定。正味の残数差は実測です。</div>`;
+ }else html+=`<div class="jc-caption">資源が分かる記録を2回以上追加すると、正味の増減を比較できます。</div>`;
+ const startV=r.find(x=>arNum(x.vamo)!=null),lastV=[...r].reverse().find(x=>arNum(x.vamo)!=null);
+ if(startV&&lastV&&startV!==lastV)html+=`<div class="jc-row"><span>バモ残高の正味増減</span><b>${fmt(lastV.vamo-startV.vamo)}</b></div>`;
+ html+=`</section>`;
+ html+=`<div class="jc-heading">獲得報酬・記録一覧 <span class="jc-caption">タップで編集</span></div>`;
+ if(!r.length)html+=`<div class="jc-note">まだ記録がありません。スクショをまとめて送ってJSON一括取り込みもできます。</div>`;
+ else html+=`<div class="jc-list">${[...r].reverse().map(x=>{
+  let parts=[];[["HARD","hardRounds"],["NORMAL","normalRounds"],["EASY","easyRounds"],[a.progressLabel||"進捗","progress"],["箱","boxNo"],["GPフル","gpHeal"],["GP半","gpHealHalf"]].forEach(([nm,k])=>{
+   if(arNum(x[k])!=null)parts.push(esc(nm)+" "+fmt(x[k]));
+  });
+  return `<button onclick="openActivityRecord('${x.id}')"><b>${esc(jcDate(x.ts))}</b><div class="jc-caption">${parts.join(" ・ ")||"その他の記録"}</div>${x.note?"<div class='jc-caption'>"+esc(x.note)+"</div>":""}</button>`;
+ }).join("")}</div>`;
+ $("activity-detail").innerHTML=html;
+}
+function openActivityRecord(id){
+ const a=act();if(!a)return;
+ editingActivityRecId=id||null;
+ const record=id?(a.records||[]).find(x=>x.id===id):null;
+ $("activity-rec-title").textContent=id?"記録を編集":"進捗・資源を記録";
+ $("ar-datetime").value=toLocalInput(record?record.ts:Date.now());
+ Object.entries(AR_PROPS).forEach(([key,htmlid])=>$(htmlid).value=record&&record[key]!=null?record[key]:"");
+ $("ar-delete-area").classList.toggle("hidden",!id);
+ openModal("m-activity-rec");
+}
+function saveActivityRecord(){
+ const a=act();if(!a)return;
+ const ts=fromLocalInput($("ar-datetime").value);if(ts==null){alert("記録日時を指定してください");return;}
+ let r=editingActivityRecId?(a.records||[]).find(x=>x.id===editingActivityRecId):null;
+ if(!r){r={id:uid()};a.records=a.records||[];a.records.push(r);}
+ r.ts=ts;
+ Object.entries(AR_PROPS).forEach(([key,htmlid])=>r[key]=key==="note"?$(htmlid).value.trim():arNum($(htmlid).value));
+ saveDB();closeModal("m-activity-rec");renderActivityDetail();toast("進捗を記録しました");
+}
+function deleteActivityRecord(){
+ const a=act();if(!a||!editingActivityRecId)return;
+ if(!confirm("この記録を削除しますか？"))return;
+ a.records=a.records.filter(x=>x.id!==editingActivityRecId);saveDB();closeModal("m-activity-rec");renderActivityDetail();
+}
+function openActivityBatch(){
+ previewActivityRows=null;$("activity-batch-input").value="";$("activity-batch-commit").disabled=true;
+ $("activity-batch-preview").textContent="取り込み内容の確認結果をここへ表示";
+ openModal("m-activity-batch");
+}
+function normActivityRecord(data){
+ if(!data||typeof data!=="object"||Array.isArray(data))throw Error("記録はJSONオブジェクトにしてください");
+ const ts=jcToDate(data.datetime??data.ts??data.recordedAt??data.date);
+ if(ts==null)throw Error("日時が正しくありません（datetimeが必要です）");
+ const aliases={hardRounds:["hardRounds","hard","hardCleared"],normalRounds:["normalRounds","normal","normalCleared"],
+  easyRounds:["easyRounds","easy","easyCleared"],progress:["progress","points","pt","myPoints","flags","medals","mp"],
+  gp:["gp","currentGp"],vamo:["vamo"],gpHeal:["gpHeal","gpFull","gpHealFull"],
+  gpHealHalf:["gpHealHalf","gpHalf"],bpHeal:["bpHeal"],bpHealMini:["bpHealMini"],
+  boxNo:["boxNo","boxNumber"],boxRemaining:["boxRemaining","boxItemsRemaining"],
+  boxFullRemaining:["boxFullRemaining","boxGPFullRemaining"],boxHalfRemaining:["boxHalfRemaining","boxGPHalfRemaining"],
+  boxTickets:["boxTickets","tickets"],note:["note","memo","rewards"]};
+ const out={ts};let valid=0;
+ for(const [key,alts] of Object.entries(aliases)){
+  const found=alts.find(k=>data[k]!==undefined&&data[k]!==null&&data[k]!=="");
+  if(found===undefined)continue;
+  if(key==="note"){out.note=String(data[found]).slice(0,1000);valid++;continue;}
+  const n=arNum(data[found]);if(n==null)throw Error(`${key} は0以上の数値で入力してください`);
+  if(n>1e13)throw Error(`${key} が大きすぎます`);
+  out[key]=n;valid++;
+ }
+ if(!valid)throw Error("記録できる数値やメモが含まれていません");
+ if(out.boxFullRemaining!=null&&out.boxFullRemaining>1)throw Error("フルの箱内未回収は0または1にしてください");
+ if(out.boxHalfRemaining!=null&&out.boxHalfRemaining>5)throw Error("ハーフの箱内未回収は0〜5にしてください");
+ return out;
+}
+function arCompatible(x,y){
+ if(Math.abs(x.ts-y.ts)>120000)return false;
+ const keys=["hardRounds","normalRounds","easyRounds","progress","gpHeal","gpHealHalf","vamo","boxNo","boxRemaining","boxFullRemaining","boxHalfRemaining","boxTickets"];
+ return keys.every(k=>arNum(x[k])==null||arNum(y[k])==null||arNum(x[k])===arNum(y[k]));
+}
+function parseActivityBatch(){
+ const obj=JSON.parse($("activity-batch-input").value.trim());
+ const list=Array.isArray(obj)?obj:(obj&&Array.isArray(obj.records)?obj.records:null);
+ if(!list||!list.length||list.length>150)throw Error("records配列に1〜150件の記録を指定してください");
+ const rows=list.map(normActivityRecord).sort((x,y)=>x.ts-y.ts);
+ const group=[];
+ for(const row of rows){
+  const existing=group.find(x=>arCompatible(x,row));
+  if(existing)Object.keys(row).forEach(k=>{if(existing[k]==null)existing[k]=row[k];});
+  else group.push(row);
+ }
+ const a=act();if(!a)throw Error("イベントがありません");
+ let add=0,fill=0,skip=0;
+ const changes=group.map(row=>{
+  const existing=arRecs(a).find(x=>arCompatible(x,row));
+  if(!existing){add++;return {mode:"add",row};}
+  const extra=Object.keys(row).filter(k=>k!=="ts"&&k!=="id"&&(existing[k]==null||existing[k]==="")&&row[k]!=null);
+  if(extra.length)fill++;else skip++;
+  return {mode:extra.length?"fill":"skip",id:existing.id,row,extra};
+ });
+ return {changes,add,fill,skip,groups:group.length};
+}
+function previewActivityBatch(){
+ try{
+  previewActivityRows=parseActivityBatch();
+  $("activity-batch-preview").textContent=`${previewActivityRows.groups}件を確認。新規${previewActivityRows.add}件・既存の空欄補完${previewActivityRows.fill}件・重複${previewActivityRows.skip}件。2分以内で主要な数値が一致するスクショを統合。既存の値は上書きしません。`;
+  $("activity-batch-commit").disabled=previewActivityRows.add+previewActivityRows.fill===0;
+ }catch(e){previewActivityRows=null;$("activity-batch-commit").disabled=true;$("activity-batch-preview").textContent="取り込みできません："+e.message;}
+}
+function commitActivityBatch(){
+ if(!previewActivityRows){alert("先に確認してください");return;}
+ const a=act();if(!a)return;
+ let n=0;
+ for(const c of previewActivityRows.changes){
+  if(c.mode==="add"){a.records.push({id:uid(),...c.row});n++;}
+  if(c.mode==="fill"){
+   const target=a.records.find(x=>x.id===c.id);if(target){for(const k of c.extra)target[k]=c.row[k];n++;}
+  }
+ }
+ saveDB();closeModal("m-activity-batch");renderActivityDetail();toast(n+"件を取り込みました");previewActivityRows=null;
+}
+function importRecentVictory(){
+ if((db.activities||[]).some(a=>a.type==="victory"&&a.start>=Date.parse("2026-11-16T00:00:00+09:00")&&a.start<Date.parse("2026-11-21T00:00:00+09:00"))){alert("11月ビグロは登録済みです");return;}
+ if(!confirm("この会話のスクショで確認できた2026年11月のビグロ実績を4件登録します。現在のランイベ記録は変更しません。"))return;
+ const a=arDefault("victory");a.name="2026年11月 ビクトリーロード";
+ a.start=Date.parse("2026-11-16T14:00:00+09:00");a.end=Date.parse("2026-11-20T13:59:00+09:00");
+ a.mainGoal="HARD20周・FOCUSED第2弾ガチャ券";a.idealGoal="HARD30周・G85以上券";
+ a.stopRule="バモを貯める・深追いせず自然回復中心で判断";
+ a.memo="11/16 18:16は既にGP回復薬フル・ハーフ各1本を使った後の基準値。回復薬の正味収支はこの時点以降。箱を進む前にフル1・ハーフ5を全回収する運用。";
+ const rows=[
+  {ts:"2026-11-16T18:16:00+09:00",hardRounds:1,gp:31,vamo:1565,gpHeal:107,gpHealHalf:180,boxNo:1,boxRemaining:150,boxFullRemaining:1,boxHalfRemaining:5,boxTickets:24,note:"確認済み初期スナップショット。ここまでにフル・ハーフ各1本を使用済み"},
+  {ts:"2026-11-17T06:33:00+09:00",hardRounds:10,gp:37,vamo:1588,gpHeal:104,gpHealHalf:167,boxTickets:664,note:"HARD10周完了"},
+  {ts:"2026-11-17T19:18:00+09:00",hardRounds:20,gp:44,vamo:1583,gpHeal:100,gpHealHalf:176,boxNo:5,boxRemaining:70,boxFullRemaining:1,boxHalfRemaining:2,boxTickets:194,note:"HARD20周、FOCUSED第2弾券で東ジョン未獲得"},
+  {ts:"2026-11-18T12:16:00+09:00",hardRounds:27,normalRounds:1,easyRounds:1,gp:31,vamo:1679,gpHeal:101,gpHealHalf:179,bpHeal:77,bpHealMini:247,boxNo:8,boxRemaining:120,boxFullRemaining:0,boxHalfRemaining:3,boxTickets:6,note:"7箱目までの特賞回収済み。8箱目はフル1本とハーフ2本を回収済み"}
+ ];
+ a.records=rows.map(x=>({id:uid(),...x,ts:jcToDate(x.ts)}));db.activities.unshift(a);saveDB();showActivity(a.id);toast("4件の実測履歴を登録しました");
+}
+
+
+/* ---------- 総合成績表・カード目標 ---------- */
+function renderPerformanceOverview(){
+ const dest=$("performance-overview");if(!dest)return;
+ const entries=[];
+ for(const e of db.events||[]){
+  const all=(e.boards||[]).flatMap(b=>b.records||[]).filter(r=>Number.isFinite(Number(r.ts))).sort((a,b)=>a.ts-b.ts);
+  let rank=null,pt=null;
+  const ranks=all.filter(r=>arNum(r.myRank)!=null);if(ranks.length)rank=ranks[ranks.length-1].myRank;
+  const points=all.filter(r=>arNum(r.myPoints)!=null);if(points.length)pt=points[points.length-1].myPoints;
+  let result=rank!=null?fmt(rank)+"位":pt!=null?fmt(pt)+"pt":all.length+"件の記録";
+  const st=all.filter(r=>arNum(r.gpHeal)!=null&&arNum(r.gpHealHalf)!=null);
+  const delta=st.length>=2?(st[0].gpHeal-st[st.length-1].gpHeal)*100+(st[0].gpHealHalf-st[st.length-1].gpHealHalf)*50:null;
+  entries.push({name:e.name||"ランキングイベント",type:"ランキング",status:e.status||"active",date:e.end||e.start||0,
+   result,delta,minutes:null,id:e.id,kind:"rank"});
+ }
+ for(const a of db.activities||[]){
+  const r=arRecs(a),z=arStockDiff(a),h=arVal(a,"hardRounds"),n=arVal(a,"normalRounds"),e=arVal(a,"easyRounds");
+  const r0=r[0],rz=r[r.length-1],matches=arNum(a.matches)||6,min=arNum(a.minutes);
+  let minutes=null;
+  if(r0&&rz&&min!=null&&h!=null){
+   const counts=["hardRounds","normalRounds","easyRounds"];
+   minutes=counts.reduce((tot,k)=>tot+Math.max(0,(arVal(a,k)||0)-(arNum(r0[k])||0)),0)*matches*min;
+  }
+  const result=a.type==="victory"?`HARD ${h==null?"?":fmt(h)}周 / 箱${arVal(a,"boxNo")??"?"}`:
+     (a.progressLabel&&arVal(a,"progress")!=null?`${a.progressLabel} ${fmt(arVal(a,"progress"))}`:`${r.length}件の記録`);
+  entries.push({name:a.name||"周回イベント",type:ACTIVITY_TYPES[a.type]||"周回",status:arStatus(a),date:a.end||a.start||0,
+    result,delta:z?z.netGp:null,minutes,id:a.id,kind:"activity"});
+ }
+ entries.sort((x,y)=>y.date-x.date);
+ if(!entries.length){dest.innerHTML="";return;}
+ dest.innerHTML=`<details class="jc-top" style="margin-top:22px"><summary style="font-size:14px;font-weight:800;cursor:pointer">全イベント成績表（${entries.length}件）</summary>
+ <div class="jc-caption" style="margin-top:8px">順位・周回数・GP回復薬の正味消費を比較。時間は登録した1試合の目安から算出した推計値で、実測ではありません。</div>
+ ${entries.map(x=>`<button class="jc-card" onclick="${x.kind==='rank'?'showEvent':'showActivity'}('${x.id}')">
+  <strong>${esc(x.name)}</strong><div class="jc-caption">${esc(x.type)} ・ ${esc(x.status)}</div>
+  <div class="jc-row"><span>${esc(x.result)}</span><span>GP薬 ${x.delta==null?"未記録":(x.delta>=0?"−":"＋")+fmt(Math.abs(x.delta))}GP</span></div>
+  ${x.minutes!=null?`<div class="jc-caption">推定試合時間 ${fmt1(x.minutes/60)}時間（記録した周回増分のみ）</div>`:""}</button>`).join("")}</details>`;
+}
+function renderCardGoals(){
+ const dest=$("card-goals-overview");if(!dest)return;
+ const cards=(db.cardGoals||[]).filter(x=>x&&x.id);
+ dest.innerHTML=`<div class="jc-heading"><span>欲しい選手・カードの目標</span><button class="jc-link" onclick="addCardGoal()">＋追加</button></div>
+ <div class="jc-caption">確定獲得と抽選を区別して記録。獲得・見送りも保存できます。</div>
+ ${cards.length?cards.map(c=>`<div class="jc-card"><div class="jc-row"><strong>${esc(c.name)}</strong><span class="jc-caption">${esc(c.status||"狙い中")}</span></div>
+ ${c.note?`<div class="jc-caption">${esc(c.note)}</div>`:""}
+ <div class="jc-actions"><button class="jc-btn" onclick="editCardGoal('${c.id}')">編集</button>
+ <button class="jc-btn" onclick="setCardGoalStatus('${c.id}')">${c.status==="獲得済み"?"狙い中に戻す":"獲得済みにする"}</button></div></div>`).join(""):
+ `<div class="jc-note">カード目標は未登録です。例：東ジョン月間ベスセ、山本英臣BANDIERA</div>`}`;
+}
+function addCardGoal(){
+ const name=prompt("欲しい選手・カード名を入力してください（例：東ジョン 月間ベストセーブ）");
+ if(!name||!name.trim())return;
+ const note=prompt("獲得方法や素材の希望（任意）","イベント報酬で狙い、バモは温存")||"";
+ db.cardGoals=db.cardGoals||[];
+ db.cardGoals.push({id:uid(),name:name.trim().slice(0,100),note:note.slice(0,500),status:"狙い中"});
+ saveDB();renderCardGoals();
+}
+function editCardGoal(id){
+ const card=(db.cardGoals||[]).find(x=>x.id===id);if(!card)return;
+ const name=prompt("カード目標名（空欄のまま保存すると削除確認に進みます）",card.name);
+ if(name===null)return;
+ if(!name.trim()){
+  if(confirm("このカード目標を削除しますか？")){db.cardGoals=db.cardGoals.filter(x=>x.id!==id);saveDB();renderCardGoals();}
+  return;
+ }
+ const note=prompt("メモ",card.note||"");if(note===null)return;
+ card.name=name.trim().slice(0,100);card.note=note.slice(0,500);
+ saveDB();renderCardGoals();
+}
+function setCardGoalStatus(id){
+ const card=(db.cardGoals||[]).find(x=>x.id===id);if(!card)return;
+ card.status=card.status==="獲得済み"?"狙い中":"獲得済み";saveDB();renderCardGoals();
+}
+
 /* ---------- 起動 ---------- */
 window.addEventListener("resize", ()=>{
   if(state.evId && state.tab==="chart") renderChart();
@@ -4456,16 +5029,8 @@ try{
     }
   });
 }catch(err){}
-/* 開催中は前回見ていたイベントへ直接戻る。ホームはイベント切替・履歴用。 */
-(function startApp(){
-  const st=db.settings||{};
-  let target=st.lastOpenedEventId ? db.events.find(e=>e.id===st.lastOpenedEventId && (e.status==="active"||e.status==="draft")) : null;
-  if(!target){
-    target=[...db.events].filter(e=>e.status==="active"||e.status==="draft").sort((a,b)=>(b.start||0)-(a.start||0))[0]||null;
-  }
-  if(target) showEvent(target.id);
-  else renderHome();
-})();
+/* 総合版はホームを起点に。既存記録・バックアップキーは変えない。 */
+(function startApp(){ renderHome(); })();
 </script>
 </body>
 </html>
